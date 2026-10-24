@@ -145,8 +145,8 @@ def path_or_url(text: str) -> bool:
 
 def name_pattern(name: str) -> re.Pattern | None:
     """A blocked name matched with every separator ignored: its letters and digits in order, any run of other
-    characters (or none) between them, ignoring case ("backup-box" hits "backupbox", "BackupBox", "back up box" and
-    "Backup.Box"). It must start a word: after a character that is not a letter or digit, or at a change from lower to
+    characters (or none) between them, ignoring case ("garden-shed" hits "gardenshed", "GardenShed", "gar den shed" and
+    "Garden.Shed"). It must start a word: after a character that is not a letter or digit, or at a change from lower to
     upper case ("OpenZephyr"), so a short name never hits inside a longer word ("openzephyr" passes). The name is
     read in its normal form (textcheck.normal_form), like the text, so an accented name hits both spellings once the
     text is normalized too. None for a name with no letter or digit."""

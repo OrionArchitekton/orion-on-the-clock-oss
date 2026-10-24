@@ -488,7 +488,7 @@ def test_without_a_media_kit_the_stage_names_the_setting(gated, tmp_path, monkey
     no_kit = load_settings(use_config(monkeypatch, tmp_path / "nokit")[0])
     assert no_kit.render_kit is None
     r = render.run_stage(Ctx(day=date(2026, 10, 16), work=w, cfg=None, dry=False, settings=no_kit))
-    assert (r.ok, r.reason) == (False, "missing:render_kit") and calls == []
+    assert (r.ok, r.reason) == (False, "missing:render.kit") and calls == []
     assert not (w / "render.json").exists()
 
 

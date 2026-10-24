@@ -149,6 +149,14 @@ def test_a_refusal_never_echoes_the_value(cfg_dir):
     ("[channel]\nid = 'not-a-channel'\n", "bad:channel.id"),
     ("[channel]\nhome_id = 'UCshort'\n", "bad:channel.home_id"),
     ("[browser]\nendpoint = 'file:///etc/passwd'\n", "bad:browser.endpoint"),
+    ("[browser]\nendpoint = 'http://10.0.0.5:9222'\n", "bad:browser.endpoint"),
+    ("[browser]\nendpoint = 'http://0.0.0.0:9222'\n", "bad:browser.endpoint"),
+    ("[browser]\nendpoint = 'wss://browsers.example.com/cdp?token=x'\n", "bad:browser.endpoint"),
+    ("[browser]\nendpoint = 'http://127.0.0.1.example.com:9222'\n", "bad:browser.endpoint"),
+    ("[browser]\nendpoint = 'http://127.0.0.1:9222/json/version'\n", "bad:browser.endpoint"),
+    ("[browser]\nlease = ['pool', 'lease']\n", "missing:browser.release"),
+    ("[browser]\nrelease = ['pool', 'release']\n", "missing:browser.lease"),
+    ("[browser]\nlease = 'pool lease'\nrelease = ['pool', 'release']\n", "bad:browser.lease"),
     ("[notify]\ncommand = 'notify-send'\n", "bad:notify.command"),
     ("[tts]\nhost = '-oProxyCommand=evil'\n", "bad:tts.host"),
 ])
@@ -219,11 +227,25 @@ remote_dir = "/var/tmp/tts-runs"
 
 
 def test_require_fails_closed_for_a_key_a_stage_needs(settings):
-    with pytest.raises(SettingsError, match="^missing:channel_id$"):
+    with pytest.raises(SettingsError, match="^missing:channel\\.id$"):
         settings.require("channel_id")
-    with pytest.raises(SettingsError, match="^missing:tts_host$"):
+    with pytest.raises(SettingsError, match="^missing:tts\\.host$"):
         settings.require("tts_host")
     assert settings.require("github_owner") == "demo-owner"  # positive control
+
+
+@pytest.mark.parametrize("endpoint", ["http://127.0.0.1:9222", "http://localhost:9333/", "http://[::1]:9222",
+                                      "ws://127.0.0.1:41234/devtools/browser/0b6e1c2a-77f0-4d1e-9a4b-1f2e3d4c5b6a"])
+def test_a_loopback_devtools_endpoint_loads(cfg_dir, endpoint):
+    s = load_settings(write(cfg_dir, SETTINGS + f"\n[browser]\nendpoint = '{endpoint}'\n"))
+    assert s.browser_endpoint == endpoint and s.browser_lease == () and s.browser_release == ()
+
+
+def test_a_lease_and_release_command_load_as_argument_lists(cfg_dir):
+    s = load_settings(write(cfg_dir, SETTINGS + "\n[browser]\nlease = ['pool', '--json', 'lease', 'b1']\n"
+                                                "release = ['~/bin/pool', 'release', 'b1']\n"))
+    assert s.browser_lease == ("pool", "--json", "lease", "b1")
+    assert s.browser_release == (str(Path.home() / "bin/pool"), "release", "b1")
 
 
 def test_a_home_relative_path_expands(cfg_dir):
@@ -238,9 +260,10 @@ def test_the_media_keys_default_to_nothing_that_runs(settings):
     assert settings.tts_target == "auto" and settings.tts_remote_gpu_allow == ()
     assert settings.whisper_python is None and settings.whisper_model == "small.en"
     assert settings.render_kit is None and settings.render_command == ("hyperframes",) and settings.render_sandbox == ()
-    for key in ("tts_python", "whisper_python", "render_kit"):
-        with pytest.raises(SettingsError, match=f"^missing:{key}$"):
+    for key, toml in (("tts_python", "tts.python"), ("whisper_python", "whisper.python"), ("render_kit", "render.kit")):
+        with pytest.raises(SettingsError) as e:
             settings.require(key)
+        assert str(e.value) == f"missing:{toml}"  # the key as settings.toml spells it, never the field name
 
 
 @pytest.mark.parametrize("block,code", [

@@ -85,7 +85,7 @@ def tracker_log(tmp_path):
          "actor": "claude/export"},
         {"ts": IN, "task": "t-2", "event": "moved", "title": "Draft the import flow", "repo": "owner/demo-tool",
          "actor": "codex/import"},
-        {"ts": IN, "task": "t-3", "event": "moved", "title": "Rotate the keys", "repo": "owner/backup-box"},
+        {"ts": IN, "task": "t-3", "event": "moved", "title": "Rotate the keys", "repo": "owner/garden-shed"},
         {"ts": AFTER, "task": "t-4", "event": "closed", "title": "Tomorrow's task", "repo": "owner/demo-tool"},
         "{torn",
     ])

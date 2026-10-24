@@ -90,7 +90,7 @@ def _usable(term: str) -> bool:
 
 
 def _term_pattern(term: str) -> str:
-    """Starts at a word boundary, no trailing boundary (so "tree talk" hits "tree talks", never "street talk").
+    """Starts at a word boundary, no trailing boundary (so "pine fair" hits "pine fairs", never "spine fair").
     Any run of whitespace, "_" or "-" between a term's words matches any such run in the text."""
     return r"(?<!\w)" + r"[\s_-]+".join(re.escape(w) for w in _words(term))
 

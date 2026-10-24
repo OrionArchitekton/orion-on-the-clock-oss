@@ -50,7 +50,7 @@ def test_harness_from_ref():
 
 
 def test_attribute_only_asks_for_wanted_prs():
-    gh = FakeGh([pr(1, "2026-10-16T21:00:00Z"), pr(2, "2026-10-16T22:00:00Z", "owner/backup-box")],
+    gh = FakeGh([pr(1, "2026-10-16T21:00:00Z"), pr(2, "2026-10-16T22:00:00Z", "owner/garden-shed")],
                 heads={("owner/demo-tool", 1): "codex/x"})
     prs = github.merged_prs(DAY, gh, owner="demo-owner")
     got = github.attribute(prs, gh, want=lambda p: p.repo == "owner/demo-tool")

@@ -72,23 +72,31 @@ budget_usd = 2
 # Words the host never says. Leave out to use the built-in list (daily/voicelint.py WRITERLY).
 # avoid_words = ["delightful", "robust"]
 
-# The pieces below are read by stages that are not ported yet (publish, notify). They are checked here so a typo
-# fails today, not on the first upload.
+# The pieces below are read by the release stages (publish, notify) and by the Studio driver (release/studio.py).
 
 [channel]
-# The YouTube channel the publish stage uploads to, by channel id (UC followed by 22 characters).
+# The YouTube channel the publish stage uploads to, by channel id (UC followed by 22 characters). Required for a real
+# publish; a dry run needs none of this.
 # id = "UCxxxxxxxxxxxxxxxxxxxxxx"
 # name = "My Channel"
-# Optional: a channel to switch the browser back to after an upload, if you keep it on another one.
+# Optional: the channel to switch the browser back to after an upload, when the same Google account holds several
+# channels and your other jobs expect that one. Leave out to skip the switch back.
 # home_id = "UCyyyyyyyyyyyyyyyyyyyyyy"
 
 [browser]
-# The Chrome DevTools endpoint the publish stage drives (a local Chrome started with --remote-debugging-port).
+# The Chrome DevTools endpoint the Studio driver connects to: a Chrome you started with remote debugging, signed in
+# to the channel's Google account. Loopback only (127.0.0.1, localhost or [::1]): a DevTools port is full control of
+# that signed-in browser, so it must never listen on another address. docs/runbook.md shows how to start one.
 endpoint = "http://127.0.0.1:9222"
+# Optional: lease the browser from a pool instead (both keys or neither). The lease command prints
+# {"ok": true, "data": {"endpoint": "ws://127.0.0.1:<port>/devtools/browser/<id>"}} or {"ok": false, "code": "BUSY"};
+# the release command prints {"ok": true, "data": {"stop": "clean"}}. docs/runbook.md has an orion-browser example.
+# lease = ["orion-browser", "--json", "lease", "my-browser", "--holder", "orion-on-the-clock", "--minutes", "30"]
+# release = ["orion-browser", "--json", "release", "my-browser", "--holder", "orion-on-the-clock"]
 
 [notify]
-# A command that receives each run's outcome as JSON on stdin. Empty: the outcome is written to the state folder
-# and printed.
+# A command that receives each run's outcome as JSON on stdin and answers with JSON on stdout (docs/runbook.md has
+# the contract). Empty: the outcome is written under the state folder (notify/) and printed.
 command = []
 
 [tts]

@@ -13,14 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 LANES = {
     "lanes": {
         "demo-tool": {"disclosure": "public", "label": "the demo tool", "why": "so every demo runs itself"},
-        "backup-box": {"disclosure": "headline", "label": "the offsite backup system",
-                       "why": "so one dead disk never costs a week"},
+        "garden-shed": {"disclosure": "headline", "label": "the greenhouse controller",
+                        "why": "so the seedlings never dry out"},
         "diary-app": {"disclosure": "public", "label": "a diary", "why": "listed by mistake"},
     },
     "hard_exclude": ["diary-app", "secret-garden"],
     "blocked_names": ["Zephyr"],
 }
-EMBARGO = {"active": True, "terms": ["tree talk"], "note": "test"}
+EMBARGO = {"active": True, "terms": ["pine fair"], "note": "test"}
 TZ = "America/Los_Angeles"  # the synthetic data below is laid out in a US zone with daylight saving
 SETTINGS = f'''timezone = "{TZ}"
 

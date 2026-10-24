@@ -88,13 +88,13 @@ def test_public_pr_becomes_a_full_item(cfg):  # positive control
 
 def test_headline_lane_is_only_label_why_and_count(cfg):
     secret_body = "The restore drill finished and every single file came back."
-    led, recs = build(cfg, raw(prs=[pr(9, repo="owner/backup-box", title="SECRET-TITLE-PR", body=secret_body)],
-                               arcs=[ArcClose("a1", "SECRET-TITLE-ARC", "backup-box", "codex",
+    led, recs = build(cfg, raw(prs=[pr(9, repo="owner/garden-shed", title="SECRET-TITLE-PR", body=secret_body)],
+                               arcs=[ArcClose("a1", "SECRET-TITLE-ARC", "garden-shed", "codex",
                                               "2026-10-16T20:00:00+00:00")]))
-    assert led["items"] == [{"id": "lane:backup-box", "kind": "headline", "lane": "backup-box",
-                             "disclosure": "headline", "harness": "unknown", "label": "the offsite backup system",
-                             "why": "so one dead disk never costs a week", "count": 2,
-                             "source": {"records": ["pr:backup-box#9", "arc:a1"]}}]
+    assert led["items"] == [{"id": "lane:garden-shed", "kind": "headline", "lane": "garden-shed",
+                             "disclosure": "headline", "harness": "unknown", "label": "the greenhouse controller",
+                             "why": "so the seedlings never dry out", "count": 2,
+                             "source": {"records": ["pr:garden-shed#9", "arc:a1"]}}]
     assert "SECRET-TITLE" not in json.dumps(led) and "restore drill" not in json.dumps(led)
     assert led["quotes"] == [] and recs == []
 
@@ -106,8 +106,8 @@ def test_unlisted_and_hard_excluded_are_dropped_and_counted(cfg):
 
 
 def test_embargo_drops_items_and_quotes(cfg):
-    talk = "We rehearsed the tree talk demo slides for an hour today."
-    led = ledger(cfg, raw(prs=[pr(4, body="notes for the tree talk"), pr(5)], cq=[q(talk, line=1), q()]))
+    fair = "We rehearsed the pine fair demo slides for an hour today."
+    led = ledger(cfg, raw(prs=[pr(4, body="notes for the pine fair"), pr(5)], cq=[q(fair, line=1), q()]))
     assert [i["id"] for i in led["items"]] == ["pr:demo-tool#5"]
     assert [x["text"] for x in led["quotes"]] == [GOOD]
     assert led["excluded"] == counters(embargo=2)
@@ -116,7 +116,7 @@ def test_embargo_drops_items_and_quotes(cfg):
 def test_scoreboard_counts_all_work_but_never_hard_excluded_repos(cfg):
     """Hard-excluded repos (personal and client work) are never counted. Unlisted repos, headline lanes and arcs with
     no repo stay in the counts (numbers only); the session counts are the readers' own."""
-    led = ledger(cfg, raw(prs=[pr(1), pr(2, repo="owner/mystery-repo"), pr(3, repo="owner/backup-box"),
+    led = ledger(cfg, raw(prs=[pr(1), pr(2, repo="owner/mystery-repo"), pr(3, repo="owner/garden-shed"),
                                pr(4, repo="owner/Diary-App.git"), pr(5, repo="owner/secret-garden")],
                           arcs=[ArcClose("a", "t", None, "codex", "2026-10-16T20:00:00+00:00"),
                                 ArcClose("b", "t", "owner/secret-garden", "codex", "2026-10-16T20:00:00+00:00"),
@@ -139,10 +139,10 @@ def test_a_source_that_was_not_read_is_an_unknown_count_never_zero(cfg):
 
 def test_items_newest_first_and_headline_last(cfg):
     led = ledger(cfg, raw(prs=[pr(1, ts="2026-10-16T15:00:00Z"), pr(2, ts="2026-10-17T01:00:00Z"),
-                               pr(3, repo="owner/backup-box")],
+                               pr(3, repo="owner/garden-shed")],
                           arcs=[ArcClose("a9", "Arc title", "owner/demo-tool", "claude_code",
                                          "2026-10-16T20:00:00+00:00")]))
-    assert [i["id"] for i in led["items"]] == ["pr:demo-tool#2", aid("a9"), "pr:demo-tool#1", "lane:backup-box"]
+    assert [i["id"] for i in led["items"]] == ["pr:demo-tool#2", aid("a9"), "pr:demo-tool#1", "lane:garden-shed"]
 
 
 def test_a_quiet_day_has_every_section_empty_and_every_counter_zero(cfg):
@@ -234,7 +234,7 @@ RULES = {
     "d_session_touched_an_excluded_fragment": ({"touched": True}, "tainted"),
     "e_text_names_an_exclude_fragment": ({"text": "We moved the Secret-Garden notes and every test passed."},
                                          "fragment_in_text"),
-    "e_text_hits_the_embargo": ({"text": "We rehearsed the tree talk demo slides for an hour today."}, "embargo"),
+    "e_text_hits_the_embargo": ({"text": "We rehearsed the pine fair demo slides for an hour today."}, "embargo"),
     "f_not_a_quotable_sentence": ({"text": "See `x` now and then again later today please."}, None),
 }
 
@@ -264,9 +264,9 @@ def test_a_candidate_built_without_its_session_scope_is_unknown_scope(cfg):
 ADMITTED = {
     "own_repo_no_remote": ({"own": None}, "console", "console"),
     "own_repo_unresolved": ({"own": UNRESOLVED}, "console", "console"),
-    "own_repo_headline_lane": ({"own": "backup-box", "repos": ("backup-box",)}, "backup-box", "headline"),
+    "own_repo_headline_lane": ({"own": "garden-shed", "repos": ("garden-shed",)}, "garden-shed", "headline"),
     "session_repos_hold_none_and_unresolved": ({"repos": (None, UNRESOLVED, "demo-tool")}, "demo-tool", "public"),
-    "session_repos_hold_a_headline_lane": ({"repos": ("backup-box", "demo-tool")}, "demo-tool", "public"),
+    "session_repos_hold_a_headline_lane": ({"repos": ("garden-shed", "demo-tool")}, "demo-tool", "public"),
 }
 
 
@@ -318,11 +318,11 @@ def test_public_pr_body_sentences_become_pr_quotes(cfg):
 
 
 PR_BARS = {
-    "headline_lane": {"repo": "owner/backup-box"},
+    "headline_lane": {"repo": "owner/garden-shed"},
     "unknown_harness": {"harness": "unknown"},
     "hard_excluded_lane": {"repo": "owner/diary-app"},
     "unlisted_lane": {"repo": "owner/mystery-repo"},
-    "embargoed_pr": {"title": "Slides for the tree talk"},
+    "embargoed_pr": {"title": "Slides for the pine fair"},
 }
 
 
@@ -402,7 +402,7 @@ NOTE_BARS = {
     "empty_title": {"title": ""},
     "blank_title": {"title": "   "},
     "title_names_an_exclude_fragment": {"title": "Tidy the Diary-App backlog"},
-    "title_hits_the_embargo": {"title": "Tree talk rehearsal"},
+    "title_hits_the_embargo": {"title": "Pine fair rehearsal"},
 }
 
 
@@ -414,16 +414,16 @@ def test_each_session_note_bar_works_on_its_own(cfg, change):
 
 def test_sessions_project_four_fields_newest_first(cfg):  # positive control for NOTE_BARS
     led = ledger(cfg, raw(cn=[note(ts="2026-10-16T18:00:00.000Z"),
-                              note(ref="cccc0003", title="Backups", repos=(None, UNRESOLVED, "backup-box"),
+                              note(ref="cccc0003", title="Seedlings", repos=(None, UNRESOLVED, "garden-shed"),
                                    ts="2026-10-16T22:00:00.000Z")],
                           xn=[note(ref="bbbb0002", harness="codex", ts="2026-10-16T20:00:00.000Z")]))
     assert led["sessions"] == [
-        {"harness": "claude_code", "ref": "cccc0003", "title": "Backups", "last_ts": "2026-10-16T22:00:00.000Z"},
+        {"harness": "claude_code", "ref": "cccc0003", "title": "Seedlings", "last_ts": "2026-10-16T22:00:00.000Z"},
         {"harness": "codex", "ref": "bbbb0002", "title": "Shipping the browser pool",
          "last_ts": "2026-10-16T20:00:00.000Z"},
         {"harness": "claude_code", "ref": "aaaa0001", "title": "Shipping the browser pool",
          "last_ts": "2026-10-16T18:00:00.000Z"}]
-    assert "/w/" not in json.dumps(led["sessions"]) and "backup-box" not in json.dumps(led["sessions"])
+    assert "/w/" not in json.dumps(led["sessions"]) and "garden-shed" not in json.dumps(led["sessions"])
 
 
 def test_sessions_cap_at_30_newest(cfg):
@@ -436,12 +436,12 @@ def test_sessions_cap_at_30_newest(cfg):
 # ---- ledger.teasers ----
 
 TEASER_BARS = {
-    "headline_lane": {"repo": "owner/backup-box"},
+    "headline_lane": {"repo": "owner/garden-shed"},
     "unlisted_lane": {"repo": "owner/mystery-repo"},
     "no_repo": {"repo": None},
     "hard_excluded_lane": {"repo": "owner/diary-app"},
     "empty_title": {"title": ""},
-    "title_hits_the_embargo": {"title": "Cut the tree talk demo"},
+    "title_hits_the_embargo": {"title": "Cut the pine fair demo"},
     "title_names_an_exclude_fragment": {"title": "Port the secret-garden importer"},
 }
 
@@ -480,7 +480,7 @@ def kept(led):
 CLEAN = ([GOOD, OTHER], ["aaaa0001"], [aid("a1")])
 
 
-@pytest.mark.parametrize("name", ["the Backup-Box restore", "the zephyr build", "Zephyrs"])
+@pytest.mark.parametrize("name", ["the Garden-Shed restore", "the zephyr build", "Zephyrs"])
 def test_text_naming_a_blocked_name_is_dropped_everywhere(cfg, name):
     led = ledger(cfg, one_of_each(name))
     assert sorted(kept(led)[0]) == sorted(CLEAN[0]) and kept(led)[1:] == CLEAN[1:]
@@ -508,9 +508,9 @@ def test_text_ok_false_drops_each_kind_and_counts_it(cfg):
 
 def test_text_ok_rejecting_everything_drops_every_checked_text(cfg):
     r = one_of_each("the plain path")
-    led = ledger(cfg, dataclasses.replace(r, prs=r.prs + (pr(3, repo="owner/backup-box"),)), text_ok=lambda s: False)
+    led = ledger(cfg, dataclasses.replace(r, prs=r.prs + (pr(3, repo="owner/garden-shed"),)), text_ok=lambda s: False)
     assert led["quotes"] == led["sessions"] == led["teasers"] == []
-    assert [i["id"] for i in led["items"]] == ["lane:backup-box"]  # the operator's own label and reason are not prefiltered
+    assert [i["id"] for i in led["items"]] == ["lane:garden-shed"]  # the operator's own label and reason are not prefiltered
     assert led["excluded"] == counters(prefiltered=8)  # 2 PR titles (so no body, no PR quote), 2 quotes, 2 notes,
     # 2 teasers
 
@@ -524,7 +524,7 @@ def test_text_ok_none_changes_nothing(cfg):
 # ---- item text: the title decides the item, body lines are filtered (review item 1) ----
 
 TITLE_BARS = {
-    "blocked_name_any_separator": ("Wire the Backup Box restore", "blocked_name"),
+    "blocked_name_any_separator": ("Wire the Garden Shed restore", "blocked_name"),
     "blocked_name": ("Fix the zephyr build", "blocked_name"),
     "fragment_any_separator": ("Move the diary_app notes", "fragment_in_text"),
     "fragment_behind_a_zero_width_space": ("Move the diary\u200b-app notes", "fragment_in_text"),
@@ -577,8 +577,8 @@ SPELLINGS = {
     "fragment_underscore": ("We parked the diary_app work and every test passed today.", "fragment_in_text"),
     "fragment_case": ("We parked the Diary-App work and every test passed today.", "fragment_in_text"),
     "fragment_wide_gap": ("We parked the DIARY  -  APP work and every test passed today.", "fragment_in_text"),
-    "blocked_space": ("We parked the backup box work and every test passed today.", "blocked_name"),
-    "blocked_underscore": ("We parked the Backup_Box work and every test passed today.", "blocked_name"),
+    "blocked_space": ("We parked the garden shed work and every test passed today.", "blocked_name"),
+    "blocked_underscore": ("We parked the Garden_Shed work and every test passed today.", "blocked_name"),
 }
 
 
@@ -606,7 +606,7 @@ def test_a_zero_width_space_cannot_split_a_fragment_in_a_quote(cfg):
 
 
 def test_a_full_width_embargo_term_in_a_pr_body_drops_the_whole_pr(cfg):
-    body = f"Rehearsed the \uff54\uff52\uff45\uff45 \uff54\uff41\uff4c\uff4b slides.\n{OTHER}"
+    body = f"Rehearsed the \uff50\uff49\uff4e\uff45 \uff46\uff41\uff49\uff52 slides.\n{OTHER}"
     led, recs = build(cfg, raw(prs=[pr(1, body=GOOD), pr(2, body=body)]))
     assert [i["id"] for i in led["items"]] == ["pr:demo-tool#1"] and [r["number"] for r in recs] == [1]
     assert [x["text"] for x in led["quotes"]] == [GOOD] and led["excluded"] == counters(embargo=1)
@@ -624,9 +624,9 @@ def test_full_width_text_is_folded_before_the_checks(cfg):
 def test_writer_view_strips_sources_urls_and_private_lane_names(cfg):
     two = dataclasses.replace(cfg, lanes={**cfg.lanes, "attic-vault": Lane("attic-vault", "headline",
                                                                              "the attic archive", "so old work stays")})
-    r = raw(prs=[pr(7, body=GOOD), pr(8, repo="owner/attic-vault"), pr(9, repo="owner/backup-box")],
+    r = raw(prs=[pr(7, body=GOOD), pr(8, repo="owner/attic-vault"), pr(9, repo="owner/garden-shed")],
             arcs=[ArcClose("a5", "Close the export arc", "owner/demo-tool", "codex", "2026-10-16T19:00:00+00:00")],
-            cq=[q(OTHER, own="backup-box", repos=("backup-box",), line=4),
+            cq=[q(OTHER, own="garden-shed", repos=("garden-shed",), line=4),
                 q("The console helper printed every lease twice today.", own=None, line=5)],
             xq=[q("The codex lane merged the export flag and the tests stayed green.", harness="codex",
                   path="/t/x.jsonl")],
@@ -649,7 +649,7 @@ def test_writer_view_strips_sources_urls_and_private_lane_names(cfg):
     assert "private_names" in led and "private_names" not in view and "attic-vault" not in dumped
     heads = [(i["id"], i["lane"], i["label"]) for i in view["items"] if i["kind"] == "headline"]
     assert heads == [("lane:private-1", "private-1", "the attic archive"),
-                     ("lane:private-2", "private-2", "the offsite backup system")]
+                     ("lane:private-2", "private-2", "the greenhouse controller")]
     by_text = {x["text"]: x for x in view["quotes"]}
     assert by_text[OTHER]["lane"] == "private-2"
     assert by_text["The console helper printed every lease twice today."]["lane"] == "console"
@@ -666,7 +666,7 @@ def test_arc_ref_is_arc_plus_8_hex_of_sha256():
 
 
 def test_a_tracker_arc_id_naming_a_blocked_name_never_reaches_the_ledger_or_the_writer(cfg):
-    leaky = "port-diary-app-to-backup-box"
+    leaky = "port-diary-app-to-garden-shed"
     closed = [ArcClose(leaky, "Port the importer", "owner/demo-tool", "codex", "2026-10-16T20:00:00+00:00"),
               ArcClose("zephyr-cleanup", "Tidy the exporter", "owner/demo-tool", "codex", "2026-10-16T19:00:00+00:00")]
     led = ledger(cfg, raw(arcs=closed, active=[arc(leaky, title="Wire the importer"),
@@ -782,7 +782,7 @@ def test_quote_ok_already_keeps_slashes_and_urls_out_of_quotes(cfg, text):
 def test_every_public_item_carries_its_lane_label_and_why(cfg):
     two = dataclasses.replace(cfg, lanes={**cfg.lanes, "pool-kit": Lane("pool-kit", "public", "the browser pool",
                                                                           "so agents share signed-in browsers")})
-    led = ledger(two, raw(prs=[pr(1), pr(2, repo="owner/pool-kit"), pr(3, repo="owner/backup-box")],
+    led = ledger(two, raw(prs=[pr(1), pr(2, repo="owner/pool-kit"), pr(3, repo="owner/garden-shed")],
                           arcs=[ArcClose("c1", "Close the export arc", "owner/demo-tool", "codex",
                                          "2026-10-16T19:00:00+00:00"),
                                 ArcClose("c2", "Close the lease arc", "owner/pool-kit", "codex",
@@ -796,7 +796,7 @@ def test_every_public_item_carries_its_lane_label_and_why(cfg):
         ("pr:pool-kit#2", "pool-kit", "the browser pool", "so agents share signed-in browsers"),
         (aid("c2"), "pool-kit", "the browser pool", "so agents share signed-in browsers")}
     [head] = [i for i in view["items"] if i["kind"] == "headline"]  # unchanged: opaque id, label and why
-    assert (head["id"], head["label"]) == ("lane:private-1", "the offsite backup system")
+    assert (head["id"], head["label"]) == ("lane:private-1", "the greenhouse controller")
 
 
 # ---- purity and what reaches the writer ----
@@ -936,8 +936,8 @@ def test_writer_view_whitelists_keys_and_drops_diagnostics_and_coverage_reasons(
 def _two_headline_ledger(cfg):
     two = dataclasses.replace(cfg, lanes={**cfg.lanes, "attic-vault": Lane("attic-vault", "headline",
                                                                              "the attic archive", "so old work stays")})
-    r = raw(prs=[pr(7, body=GOOD), pr(8, repo="owner/attic-vault"), pr(9, repo="owner/backup-box")],
-            cq=[q(OTHER, own="backup-box", repos=("backup-box",), line=4)], cn=[note()])
+    r = raw(prs=[pr(7, body=GOOD), pr(8, repo="owner/attic-vault"), pr(9, repo="owner/garden-shed")],
+            cq=[q(OTHER, own="garden-shed", repos=("garden-shed",), line=4)], cn=[note()])
     return ledger(two, r)
 
 
@@ -946,7 +946,7 @@ def test_every_story_id_the_view_shows_resolves_to_its_ledger_item(cfg):
     view = writer_view(led)
     got = {i["id"]: resolve_view_id(led, i["id"]) for i in view["items"]}
     assert got == {"pr:demo-tool#7": "pr:demo-tool#7", "lane:private-1": "lane:attic-vault",
-                   "lane:private-2": "lane:backup-box"}
+                   "lane:private-2": "lane:garden-shed"}
     assert all(resolve_view_id(led, i["id"]) in {x["id"] for x in led["items"]} for i in view["items"])
 
 
@@ -962,8 +962,8 @@ def test_an_unknown_id_or_alias_resolves_to_none(cfg, vid):
 
 
 def test_a_headline_alias_from_a_quote_alone_has_no_item_to_resolve_to(cfg):
-    """backup-box appears only through a quote here: its alias is real in the view but names no ledger item."""
-    led = ledger(cfg, raw(prs=[pr(7, body=GOOD)], cq=[q(OTHER, own="backup-box", repos=("backup-box",), line=4)]))
+    """garden-shed appears only through a quote here: its alias is real in the view but names no ledger item."""
+    led = ledger(cfg, raw(prs=[pr(7, body=GOOD)], cq=[q(OTHER, own="garden-shed", repos=("garden-shed",), line=4)]))
     assert any(x["lane"] == "private-1" for x in writer_view(led)["quotes"])
     assert resolve_view_id(led, "lane:private-1") is None
 
@@ -998,7 +998,7 @@ def test_arc_titles_lose_backticks_but_session_and_teaser_titles_stay_strict(cfg
     assert led["excluded"]["prefiltered"] == 2
 
 
-@pytest.mark.parametrize("title", ["Ship the BackupBox sync", "Ship the backupbox sync", "Ship Zeph-yr sync"])
+@pytest.mark.parametrize("title", ["Ship the GardenShed sync", "Ship the gardenshed sync", "Ship Zeph-yr sync"])
 def test_the_ledger_matches_blocked_names_like_the_gate(cfg, title):
     led = ledger(cfg, raw(prs=[pr(7, title=title), pr(8, title="Ship the backup plan")]))  # 8: positive control
     assert [i["title"] for i in led["items"]] == ["Ship the backup plan"]
@@ -1013,7 +1013,7 @@ CAFE = "caf" + chr(0xE9)
 
 
 def test_accented_config_terms_drop_both_spellings_at_collect(cfg):
-    accented = dataclasses.replace(cfg, blocked_names=("Zephyr", ZOE), embargo_terms=("tree talk", JOSE),
+    accented = dataclasses.replace(cfg, blocked_names=("Zephyr", ZOE), embargo_terms=("pine fair", JOSE),
                                    hard_exclude=cfg.hard_exclude + (CAFE + "-notes",))
     prs = [pr(1, title="Met " + JOSE + " about the pool"), pr(2, title="Met Jose Ramirez about the pool"),
            pr(3, title=ZOE + " reviewed the pool"), pr(4, title="Zoe reviewed the pool"),
@@ -1025,7 +1025,7 @@ def test_accented_config_terms_drop_both_spellings_at_collect(cfg):
 
 
 def test_ascii_spellings_of_accented_terms_drop_quotes_at_collect(cfg):
-    accented = dataclasses.replace(cfg, blocked_names=("Zephyr", ZOE), embargo_terms=("tree talk", JOSE))
+    accented = dataclasses.replace(cfg, blocked_names=("Zephyr", ZOE), embargo_terms=("pine fair", JOSE))
     quotes = [q("We talked to Jose Ramirez about the pool and it shipped.", line=1),
               q("Zoe said the pool shipped and every single test passed.", line=2), q(line=3)]
     led = ledger(accented, raw(cq=quotes))
@@ -1036,7 +1036,7 @@ def test_ascii_spellings_of_accented_terms_drop_quotes_at_collect(cfg):
 # ---- one normalization: collect reads the same two forms as the gate ----
 
 def test_a_combining_mark_inside_an_embargo_term_drops_the_quote_at_collect(cfg):
-    marked = "We rehearsed the tre" + chr(0x332) + "e talk again this morning, all of it."
+    marked = "We rehearsed the pin" + chr(0x332) + "e fair again this morning, all of it."
     led = ledger(cfg, raw(cq=[q(line=1), q(marked, line=2)]))
     assert [x["text"] for x in led["quotes"]] == [GOOD]  # one quote lost, never passed on to fail the gate
     assert led["excluded"] == counters(embargo=1)
@@ -1076,23 +1076,23 @@ def test_a_blank_session_directory_is_an_unknown_scope(cfg, cwds):  # #0
 
 
 def test_every_item_carries_its_source_record(cfg):  # #3
-    led = ledger(cfg, raw(prs=[pr(7), pr(8, repo="owner/backup-box")],
+    led = ledger(cfg, raw(prs=[pr(7), pr(8, repo="owner/garden-shed")],
                           arcs=[ArcClose("raw-arc-1", "Close the export arc", "owner/demo-tool", "codex",
                                          "2026-10-16T19:00:00+00:00"),
-                                ArcClose("raw-arc-2", "Close the restore arc", "owner/backup-box", "codex",
+                                ArcClose("raw-arc-2", "Close the restore arc", "owner/garden-shed", "codex",
                                          "2026-10-16T18:00:00+00:00")]))
     by_id = {i["id"]: i for i in led["items"]}
     assert by_id["pr:demo-tool#7"]["source"] == {"record": "pr:demo-tool#7",
                                                   "url": "https://github.com/owner/demo-tool/pull/7"}
     assert by_id[aid("raw-arc-1")]["source"] == {"record": "arc:raw-arc-1"}
-    assert by_id["lane:backup-box"]["source"] == {"records": ["pr:backup-box#8", "arc:raw-arc-2"]}
-    assert by_id["lane:backup-box"]["count"] == 2
+    assert by_id["lane:garden-shed"]["source"] == {"records": ["pr:garden-shed#8", "arc:raw-arc-2"]}
+    assert by_id["lane:garden-shed"]["count"] == 2
     view = json.dumps(writer_view(led))
     assert '"source"' not in view and "raw-arc" not in view and "pull/7" not in view
 
 
 def test_private_names_hold_every_repo_seen_that_is_not_a_public_lane(cfg):  # #2
-    led = ledger(cfg, raw(prs=[pr(1), pr(2, repo="owner/Mystery-Repo.git"), pr(3, repo="owner/backup-box"),
+    led = ledger(cfg, raw(prs=[pr(1), pr(2, repo="owner/Mystery-Repo.git"), pr(3, repo="owner/garden-shed"),
                                pr(4, repo="owner/diary-app")],
                           arcs=[ArcClose("a1", "Close it", "owner/arc-only-repo", "codex", "2026-10-16T19:00:00+00:00"),
                                 ArcClose("a2", "Close it too", None, "codex", "2026-10-16T19:00:00+00:00")],
@@ -1100,7 +1100,7 @@ def test_private_names_hold_every_repo_seen_that_is_not_a_public_lane(cfg):  # #
                           cq=[q(own="client-thing", repos=("client-thing",), line=1),
                               q(OTHER, repos=("demo-tool", "side-repo", None, UNRESOLVED), line=2)],
                           cn=[note(repos=("demo-tool", "note-repo"))]))
-    assert led["private_names"] == ["active-only-repo", "arc-only-repo", "backup-box", "client-thing", "diary-app",
+    assert led["private_names"] == ["active-only-repo", "arc-only-repo", "client-thing", "diary-app", "garden-shed",
                                     "mystery-repo", "note-repo", "side-repo"]
     assert "private_names" not in writer_view(led)
 

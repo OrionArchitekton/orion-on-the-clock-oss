@@ -58,7 +58,7 @@ class Env:
             settings, claude_projects=tmp_path / "projects", codex_db=tmp_path / "codex.sqlite",
             tracker=tmp_path / "tracker.py", adapters=(Adapter("alpha_agent", "Alpha Agent", tmp_path / "alpha.py"),))
         self.calls: dict = {}
-        self.prs = [pr(7), pr(8, repo="owner/backup-box"), pr(9, repo="owner/mystery-repo")]
+        self.prs = [pr(7), pr(8, repo="owner/garden-shed"), pr(9, repo="owner/mystery-repo")]
         self.claude_quotes = (cq(GOOD), cq(OTHER, repo="mystery-repo", line=4))
         self.claude_digest = DIGEST
         self.alpha = {"sessions": 26, "subagents": 5}
@@ -168,7 +168,7 @@ def test_collect_writes_the_ledger_and_only_attributes_public_prs(env):
     assert res.ok and not res.quiet and res.reason == ""
     data = json.loads((work / "ledger.json").read_text())
     assert data["day"] == "2026-10-16"
-    assert [i["id"] for i in data["items"]] == ["pr:demo-tool#7", "lane:backup-box"]
+    assert [i["id"] for i in data["items"]] == ["pr:demo-tool#7", "lane:garden-shed"]
     assert [p.number for p in env.calls["attribute"][0][0]] == [7, 8, 9]  # all of them pass through attribute
     assert data["diagnostics"]["github"] == {"lookups": 1, "failed_lookups": 1, "bad_time": 0}  # only #7 was looked up
     assert [i["harness"] for i in data["items"] if i["kind"] == "pr"] == ["codex"]
@@ -427,7 +427,7 @@ def test_without_the_text_checks_the_stage_fails_closed(env, monkeypatch):
 # ---- sources/github.jsonl ----
 
 def test_pr_quote_lines_point_at_their_record(env):
-    env.prs = [pr(7, body=f"{PR_A}\n\nNothing quotable."), pr(8, repo="owner/backup-box", body=PR_A),
+    env.prs = [pr(7, body=f"{PR_A}\n\nNothing quotable."), pr(8, repo="owner/garden-shed", body=PR_A),
                pr(12, body=f"Intro.\n{PR_B}"), pr(3, body="Too short.")]
     res, work = env.collect()
     src = work / "sources" / "github.jsonl"

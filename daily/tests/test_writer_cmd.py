@@ -30,7 +30,7 @@ def sample_ledger(cfg, body=GOOD):
     """A real build_ledger result: a public PR (url, PR quote with a source path), a private headline lane, a
     transcript quote with an absolute path, a session note, a teaser and reader diagnostics."""
     prs = (PR("owner/demo-tool", 7, "Add the browser pool", body, URL, "2026-10-16T21:00:00Z", "codex"),
-           PR("owner/backup-box", 9, "Rotate the keys", "Body text", "https://github.com/owner/backup-box/pull/9",
+           PR("owner/garden-shed", 9, "Rotate the keys", "Body text", "https://github.com/owner/garden-shed/pull/9",
               "2026-10-16T20:00:00Z", "codex"))
     quote = QuoteCandidate(harness="claude_code", repo=None, cwd="/w/demo-tool", text=SAID,
                            ts="2026-10-16T20:00:00Z", path=TRANSCRIPT, line=4, record="u1",
@@ -55,11 +55,11 @@ def fenced(prompt: str) -> str:
 def test_prompt_carries_only_the_writer_view(cfg):
     led = sample_ledger(cfg)
     raw_dump = json.dumps(led)
-    for leak in (SRC, TRANSCRIPT, URL, '"source"', '"url"', '"diagnostics"', "backup-box"):
+    for leak in (SRC, TRANSCRIPT, URL, '"source"', '"url"', '"diagnostics"', "garden-shed"):
         assert leak in raw_dump  # positive control: the ledger itself carries every one of them
     p = writer.build_prompt(led, SHOW)
     assert json.loads(fenced(p)) == writer_view(led)
-    for leak in (SRC, TRANSCRIPT, URL, '"source"', '"url"', '"diagnostics"', '"lookups"', "backup-box", "http",
+    for leak in (SRC, TRANSCRIPT, URL, '"source"', '"url"', '"diagnostics"', '"lookups"', "garden-shed", "http",
                  "/home", "/work"):
         assert leak not in p
     rest = p

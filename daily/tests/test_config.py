@@ -35,13 +35,13 @@ def test_hard_exclude_matches_a_cwd_fragment(cfg):
 
 
 def test_embargo_matches_from_a_word_start_and_ignores_case(cfg):
-    assert cfg.embargo_hit("Notes for the Tree Talk demo")
-    assert cfg.embargo_hit("see (TREE TALK).")  # punctuation at the edges still hits
-    assert cfg.embargo_hit("the tree talks")  # no trailing boundary: inflections hit
-    assert cfg.embargo_hit("Tree Talk's agenda")
-    assert not cfg.embargo_hit("a treetalk parrot")
-    assert not cfg.embargo_hit("street talk")  # the term must start at a word boundary
-    assert not cfg.embargo_hit("the subtree talk")  # holds the term mid-word; "street talk" alone cannot catch that
+    assert cfg.embargo_hit("Notes for the Pine Fair demo")
+    assert cfg.embargo_hit("see (PINE FAIR).")  # punctuation at the edges still hits
+    assert cfg.embargo_hit("the pine fairs")  # no trailing boundary: inflections hit
+    assert cfg.embargo_hit("Pine Fair's agenda")
+    assert not cfg.embargo_hit("a pinefair parrot")
+    assert not cfg.embargo_hit("spine fair")  # the term must start at a word boundary
+    assert not cfg.embargo_hit("the alpine fair")  # holds the term mid-word; "spine fair" alone cannot catch that
 
 
 @pytest.mark.parametrize("text", ["built on .NET today", ".net first", "(.Net)"])
@@ -51,13 +51,13 @@ def test_embargo_term_may_start_with_a_non_word_character(cfg_dir, text):
 
 
 def test_inactive_embargo_never_hits(cfg_dir):
-    (cfg_dir / "embargo.json").write_text(json.dumps({"active": False, "terms": ["tree talk"]}))
-    assert not load_config(cfg_dir).embargo_hit("the tree talk")
+    (cfg_dir / "embargo.json").write_text(json.dumps({"active": False, "terms": ["pine fair"]}))
+    assert not load_config(cfg_dir).embargo_hit("the pine fair")
 
 
 def test_names_to_block_covers_headline_hard_and_blocked(cfg):
     names = cfg.names_to_block()
-    assert {"backup-box", "diary-app", "secret-garden", "Zephyr"} <= set(names)
+    assert {"garden-shed", "diary-app", "secret-garden", "Zephyr"} <= set(names)
     assert "demo-tool" not in names
 
 
@@ -95,7 +95,7 @@ LANES_SHAPE_CASES = [
     ("why-empty", lambda d: _lane(d, why=""), "bad_shape:why:demo-tool"),
     ("why-not-a-string", lambda d: _lane(d, why=["so"]), "bad_shape:why:demo-tool"),
     ("why-missing", lambda d: _drop(d, "why"), "bad_shape:why:demo-tool"),
-    ("headline-why-empty", lambda d: d["lanes"]["backup-box"].update(why=""), "bad_shape:why:backup-box"),
+    ("headline-why-empty", lambda d: d["lanes"]["garden-shed"].update(why=""), "bad_shape:why:garden-shed"),
     ("hard-exclude-is-a-string", lambda d: d.update(hard_exclude="diary-app"), "bad_shape:hard_exclude"),
     ("hard-exclude-has-a-non-string", lambda d: d.update(hard_exclude=["diary-app", 1]), "bad_shape:hard_exclude"),
     ("hard-exclude-missing", lambda d: d.pop("hard_exclude"), "bad_shape:hard_exclude"),
@@ -123,8 +123,8 @@ EMBARGO_SHAPE_CASES = [
     ("active-missing", lambda d: d.pop("active"), "bad_shape:embargo.active"),
     ("active-is-a-string", lambda d: d.update(active="yes"), "bad_shape:embargo.active"),
     ("active-is-an-int", lambda d: d.update(active=1), "bad_shape:embargo.active"),
-    ("terms-is-a-string", lambda d: d.update(terms="tree talk"), "bad_shape:embargo.terms"),
-    ("terms-has-a-non-string", lambda d: d.update(terms=["tree talk", 1]), "bad_shape:embargo.terms"),
+    ("terms-is-a-string", lambda d: d.update(terms="pine fair"), "bad_shape:embargo.terms"),
+    ("terms-has-a-non-string", lambda d: d.update(terms=["pine fair", 1]), "bad_shape:embargo.terms"),
     ("terms-missing", lambda d: d.pop("terms"), "bad_shape:embargo.terms"),
     ("terms-empty-while-active", lambda d: d.update(terms=[]), "bad_shape:embargo.terms"),
     ("terms-all-blank-while-active", lambda d: d.update(terms=["", "   "]), "bad_shape:embargo.terms"),
@@ -146,22 +146,22 @@ def test_right_shapes_still_load(cfg_dir):  # positive control for the shape tab
     assert cfg.lanes == {} and cfg.hard_exclude == () and cfg.blocked_names == () and not cfg.embargo_active
 
 
-@pytest.mark.parametrize("dup_key", ["x/backup-box", "Backup-Box", "https://github.com/x/backup-box.git"])
+@pytest.mark.parametrize("dup_key", ["x/garden-shed", "Garden-Shed", "https://github.com/x/garden-shed.git"])
 def test_two_lane_keys_with_one_normalized_name_fail(cfg_dir, dup_key):
-    # the fixture lists backup-box as headline; a second spelling must not silently downgrade it to public
+    # the fixture lists garden-shed as headline; a second spelling must not silently downgrade it to public
     entry = {"disclosure": "public", "label": "a label", "why": "a reason"}
     _edit(cfg_dir, "lanes.json", lambda d: d["lanes"].update({dup_key: entry}))
     with pytest.raises(ConfigError) as err:
         load_config(cfg_dir)
-    assert str(err.value) == "duplicate_lane:backup-box"
+    assert str(err.value) == "duplicate_lane:garden-shed"
 
 
 def test_distinct_lane_names_load_fine(cfg_dir):  # positive control for the duplicate check
     entry = {"disclosure": "public", "label": "a label", "why": "a reason"}
     _edit(cfg_dir, "lanes.json", lambda d: d["lanes"].update({"Owner/Alpha-Tool": entry, "beta-tool": entry}))
     lanes = load_config(cfg_dir).lanes
-    assert set(lanes) == {"demo-tool", "backup-box", "diary-app", "alpha-tool", "beta-tool"}
-    assert lanes["backup-box"].disclosure == "headline"
+    assert set(lanes) == {"demo-tool", "garden-shed", "diary-app", "alpha-tool", "beta-tool"}
+    assert lanes["garden-shed"].disclosure == "headline"
 
 
 def test_example_config_loads():
@@ -234,7 +234,7 @@ def test_names_to_block_normalizes_every_entry(cfg_dir):
     assert cfg.blocked_names == ("Zephyr", "Owner/Codename-X", "") and cfg.hard_exclude == ("Owner/Diary-App", "secret-garden/")
     names = cfg.names_to_block()
     assert {"Zephyr", "Owner/Codename-X", "codename-x", "diary-app", "Owner/Diary-App", "secret-garden",
-            "backup-box"} <= set(names)
+            "garden-shed"} <= set(names)
     assert all(n and n == n.strip() for n in names)
     assert "demo-tool" not in names  # positive control: a plain public lane is never blocked
 
@@ -259,14 +259,14 @@ def _lanes_file(body):
 
 REPEATED_KEY_CASES = [
     ("lane-key", "lanes.json",
-     _lanes_file('{"backup-box": %s, "backup-box": %s}' % (_lane_json("headline"), _lane_json("public"))),
-     "duplicate_lane:backup-box"),
+     _lanes_file('{"garden-shed": %s, "garden-shed": %s}' % (_lane_json("headline"), _lane_json("public"))),
+     "duplicate_lane:garden-shed"),
     ("top-level-key", "lanes.json",
      '{"lanes": {}, "hard_exclude": [], "hard_exclude": ["diary-app"], "blocked_names": []}', "duplicate_key:hard_exclude"),
     ("field-inside-a-lane", "lanes.json",
-     _lanes_file('{"backup-box": %s}' % _lane_json("headline", '"disclosure": "public", ')), "duplicate_key:disclosure"),
-    ("embargo-active", "embargo.json", '{"active": true, "active": false, "terms": ["tree talk"]}', "duplicate_key:active"),
-    ("embargo-terms", "embargo.json", '{"active": true, "terms": ["tree talk"], "terms": []}', "duplicate_key:terms"),
+     _lanes_file('{"garden-shed": %s}' % _lane_json("headline", '"disclosure": "public", ')), "duplicate_key:disclosure"),
+    ("embargo-active", "embargo.json", '{"active": true, "active": false, "terms": ["pine fair"]}', "duplicate_key:active"),
+    ("embargo-terms", "embargo.json", '{"active": true, "terms": ["pine fair"], "terms": []}', "duplicate_key:terms"),
 ]
 
 
@@ -279,28 +279,28 @@ def test_a_repeated_json_key_fails_instead_of_last_one_winning(cfg_dir, name, te
 
 
 def test_the_same_files_without_repeated_keys_load(cfg_dir):  # positive control for the repeated-key table
-    (cfg_dir / "lanes.json").write_text(_lanes_file('{"backup-box": %s, "other-box": %s}' % (_lane_json("headline"),
+    (cfg_dir / "lanes.json").write_text(_lanes_file('{"garden-shed": %s, "other-box": %s}' % (_lane_json("headline"),
                                                                                               _lane_json("public"))))
-    (cfg_dir / "embargo.json").write_text('{"active": true, "terms": ["tree talk"]}')
+    (cfg_dir / "embargo.json").write_text('{"active": true, "terms": ["pine fair"]}')
     cfg = load_config(cfg_dir)
-    assert cfg.lanes["backup-box"].disclosure == "headline" and cfg.lanes["other-box"].disclosure == "public"
+    assert cfg.lanes["garden-shed"].disclosure == "headline" and cfg.lanes["other-box"].disclosure == "public"
 
 
-@pytest.mark.parametrize("text", ["tree talk", "tree  talk", "tree\ntalk", "tree \t\n talk", "Tree-Talk", "tree_talk", "TREE - TALK"])
+@pytest.mark.parametrize("text", ["pine fair", "pine  fair", "pine\nfair", "pine \t\n fair", "Pine-Fair", "pine_fair", "PINE - FAIR"])
 def test_embargo_term_hits_across_separator_variants(cfg, text):
     assert cfg.embargo_hit(f"notes on {text} today")
 
 
-@pytest.mark.parametrize("text", ["treetalk", "trees talk", "tree and talk", "street talk", "subtree talk", "tree.talk"])
+@pytest.mark.parametrize("text", ["pinefair", "pines fair", "pine and fair", "spine fair", "alpine fair", "pine.fair"])
 def test_embargo_term_does_not_hit_without_a_separator_or_word_start(cfg, text):  # controls for the variants above
     assert not cfg.embargo_hit(f"notes on {text} today")
 
 
 def test_embargo_term_with_irregular_whitespace_still_hits(cfg_dir):
-    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": ["  Tree \t  Talk  ", "   "]}))
+    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": ["  Pine \t  Fair  ", "   "]}))
     cfg = load_config(cfg_dir)
-    assert cfg.embargo_hit("the tree talk") and cfg.embargo_hit("the tree-talk")
-    assert not cfg.embargo_hit("the street talk")  # control; the blank term must not match everything
+    assert cfg.embargo_hit("the pine fair") and cfg.embargo_hit("the pine-fair")
+    assert not cfg.embargo_hit("the spine fair")  # control; the blank term must not match everything
 
 
 INVISIBLE = [chr(c) for c in (0x200B, 0x200C, 0x200D, 0xFEFF, 0x2060, 0x00AD)]  # zero-width, joiner, soft hyphen
@@ -309,17 +309,17 @@ INVISIBLE_IDS = [f"{ord(c):04X}" for c in INVISIBLE]
 
 @pytest.mark.parametrize("zw", INVISIBLE, ids=INVISIBLE_IDS)
 def test_invisible_characters_cannot_split_an_embargo_term(cfg, zw):
-    assert cfg.embargo_hit(f"a tr{zw}ee talk piece")
-    assert cfg.embargo_hit(f"a tree ta{zw}lk piece")
-    assert cfg.embargo_hit(f"a {zw}tree talk piece")
-    assert not cfg.embargo_hit(f"a tr{zw}ee walk piece")  # positive control: stripping invents no hits
+    assert cfg.embargo_hit(f"a pi{zw}ne fair piece")
+    assert cfg.embargo_hit(f"a pine fa{zw}ir piece")
+    assert cfg.embargo_hit(f"a {zw}pine fair piece")
+    assert not cfg.embargo_hit(f"a pi{zw}ne walk piece")  # positive control: stripping invents no hits
 
 
 @pytest.mark.parametrize("zw", INVISIBLE, ids=INVISIBLE_IDS)
 def test_invisible_characters_pasted_into_a_term_do_not_stop_it_matching(cfg_dir, zw):
-    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [f"tree{zw} talk", zw]}))
+    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [f"pine{zw} fair", zw]}))
     cfg = load_config(cfg_dir)
-    assert cfg.embargo_hit("the tree talk") and not cfg.embargo_hit("the street talk")  # the zero-width-only term is skipped
+    assert cfg.embargo_hit("the pine fair") and not cfg.embargo_hit("the spine fair")  # the zero-width-only term is skipped
 
 
 @pytest.mark.parametrize("zw", INVISIBLE, ids=INVISIBLE_IDS)
@@ -335,21 +335,21 @@ def test_active_embargo_with_one_usable_term_loads(cfg_dir):  # control for the 
     assert load_config(cfg_dir).embargo_hit("the Launch Codename slipped")
 
 
-@pytest.mark.parametrize("term", ["tree talk", "tree-talk", "tree_talk", "  Tree - Talk  ", "tree\t_\ttalk"])
+@pytest.mark.parametrize("term", ["pine fair", "pine-fair", "pine_fair", "  Pine - Fair  ", "pine\t_\tfair"])
 def test_embargo_term_separators_are_interchangeable(cfg_dir, term):
     (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [term]}))
     cfg = load_config(cfg_dir)
-    for text in ("tree talk", "Tree-Talk", "tree\ntalk", "tree_talk", "the tree talks"):
+    for text in ("pine fair", "Pine-Fair", "pine\nfair", "pine_fair", "the pine fairs"):
         assert cfg.embargo_hit(text), (term, text)
-    for text in ("subtree talk", "treetalk", "street talk"):  # controls: still needs a word start and a separator
+    for text in ("alpine fair", "pinefair", "spine fair"):  # controls: still needs a word start and a separator
         assert not cfg.embargo_hit(text), (term, text)
 
 
 @pytest.mark.parametrize("junk", ["-", "_", " - _ ", "--"])
 def test_a_separator_only_term_is_not_usable(cfg_dir, junk):
-    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [junk, "tree talk"]}))
-    cfg = load_config(cfg_dir)  # control: loads because "tree talk" is usable
-    assert cfg.embargo_hit("the tree talk") and not cfg.embargo_hit("an unrelated - line_of_text")  # junk matches nothing
+    (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [junk, "pine fair"]}))
+    cfg = load_config(cfg_dir)  # control: loads because "pine fair" is usable
+    assert cfg.embargo_hit("the pine fair") and not cfg.embargo_hit("an unrelated - line_of_text")  # junk matches nothing
     (cfg_dir / "embargo.json").write_text(json.dumps({"active": True, "terms": [junk]}))
     with pytest.raises(ConfigError) as err:
         load_config(cfg_dir)

@@ -106,7 +106,7 @@ def test_a_dry_run_without_a_kit_stops_closed_at_render(tmp_path, monkeypatch):
     assert run.main(DRY_ARGS) == 1
     got = stages_of(d)
     assert got["voice"]["state"] == "dry"
-    assert (got["render"]["state"], got["render"]["reason"]) == ("failed", "missing:render_kit") and calls == []
+    assert (got["render"]["state"], got["render"]["reason"]) == ("failed", "missing:render.kit") and calls == []
 
 
 # ---- the same rehearsal end to end: only the HyperFrames command is faked ----
@@ -249,5 +249,5 @@ def test_a_real_run_without_the_tts_interpreter_stops_closed_at_voice(tmp_path, 
         n: {"state": "done", "reason": "", "at": "2026-10-17T12:30:00Z"} for n in ("collect", "write", "gate")}})
     assert run.main(["--day", DAY.isoformat(), "--from-stage", "voice", "--until", "render"]) == 1
     got = stages_of(w)
-    assert (got["voice"]["state"], got["voice"]["reason"]) == ("failed", "missing:tts_python")
+    assert (got["voice"]["state"], got["voice"]["reason"]) == ("failed", "missing:tts.python")
     assert "render" not in got and calls == []

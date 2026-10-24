@@ -1176,9 +1176,9 @@ def test_a_dry_run_needs_no_interpreters_and_no_reference(tmp_path, monkeypatch)
 # ---- the stage: what a real run needs before any voicing ----
 
 @pytest.mark.parametrize("extra,code", [
-    ('[whisper]\npython = "/opt/whisper/bin/python"\n', "missing:tts_python"),
-    ('[tts]\npython = "/opt/tts/bin/python"\n', "missing:whisper_python"),
-    ("", "missing:whisper_python"),
+    ('[whisper]\npython = "/opt/whisper/bin/python"\n', "missing:tts.python"),
+    ('[tts]\npython = "/opt/tts/bin/python"\n', "missing:whisper.python"),
+    ("", "missing:whisper.python"),
 ])
 def test_a_real_run_names_the_interpreter_it_lacks_before_any_voicing(tmp_path, monkeypatch, extra, code):
     w = M.work_dir(tmp_path)

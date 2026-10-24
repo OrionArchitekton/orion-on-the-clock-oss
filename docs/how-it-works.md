@@ -84,7 +84,7 @@ outcome; dated folders older than a week are pruned. A fallback is recorded as `
 
 **Reason codes:** `settings_missing`, `stale_cleanup`, `gate_not_accepted`, `quiet_script_at_voice`,
 `voice_config:<code>` (voices.json missing or invalid; the code names the key, such as `missing:host.ref`),
-`voice_missing:<agents>`, `voice_lines:<class>`, `missing:whisper_python`, `missing:tts_python`, `voice_ref:<code>`,
+`voice_missing:<agents>`, `voice_lines:<class>`, `missing:whisper.python`, `missing:tts.python`, `voice_ref:<code>`,
 `voice_config_changed`, `align_coverage:...`, and `voice:<code>` (`tts_runner_failed`, `tts_results_unreadable`,
 `tts_results_ids`, `tts_results_ref`, `tts_wav_missing`, `raw_length`, `tts_remote_<code>` when the target is
 `remote`) or `voice:<class>` for anything else (such as `voice:TimeoutExpired`).
@@ -168,7 +168,7 @@ exec timeout -k 15 "$T" unshare -r -n -p -f --mount-proc bash -c 'ip link set lo
 sandbox = ["~/bin/render-sandbox.sh", "{timeout}"]
 ```
 
-**Reason codes:** `stale_cleanup`, `settings_missing`, `missing:render_kit`, `gate_not_accepted`, `no_voice_lines`,
+**Reason codes:** `stale_cleanup`, `settings_missing`, `missing:render.kit`, `gate_not_accepted`, `no_voice_lines`,
 `no_voice_manifest`, `voice_config_changed`, `voice_mismatch`, `compose:<class>`, `mix:<class>`, `hf_check_failed`,
 `hf_check`, `hf_render_failed`, `hf_render`, `hf_timeout`, `hf:<class>`, `render_probe:<code or class>` (`probe_timeout`,
 `probe_failed`, `probe_unreadable`), `render_checks:<check names>` (read `render.json` for the evidence).

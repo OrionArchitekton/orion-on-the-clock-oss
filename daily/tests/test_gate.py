@@ -109,7 +109,7 @@ ALONE = [
     ("slop", lambda w: put(w["script"], "story.host", [words(44) + " seamless", words(45), words(45)]), ("slop",)),
     ("secrets", lambda w: put(w["script"], "out.host", words(14) + " hunter"), ("secrets",)),
     ("names", lambda w: put(w["script"], "cold_open.on_screen", "Zephyr rules"), ("names",)),
-    ("embargo", lambda w: put(w["script"], "story.host", ["we rehearsed the tree talk " + words(40), words(45),
+    ("embargo", lambda w: put(w["script"], "story.host", ["we rehearsed the pine fair " + words(40), words(45),
                                                           words(45)]), ("embargo",)),
     ("word_budget", lambda w: put(w["script"], "story.host", [words(5)]), ("word_budget",)),
     ("no_code", lambda w: put(w["script"], "steal_this.on_screen", "Steal this: one `log` per run"), ("no_code",)),
@@ -200,8 +200,8 @@ def test_a_session_note_can_carry_the_story(tmp_path, cfg):
 
 def headline_world(tmp_path):
     src, qid, ledger = make_world(tmp_path)
-    ledger["items"].append({"id": "lane:backup-box", "kind": "headline", "lane": "backup-box", "disclosure": "headline",
-                            "harness": "unknown", "label": "the offsite backup system", "why": "so one dead disk",
+    ledger["items"].append({"id": "lane:garden-shed", "kind": "headline", "lane": "garden-shed", "disclosure": "headline",
+                            "harness": "unknown", "label": "the greenhouse controller", "why": "so the seedlings",
                             "count": 2})
     return qid, ledger
 
@@ -210,13 +210,13 @@ def test_a_headline_story_written_with_its_view_alias_passes(tmp_path, cfg):
     """The writer sees a private lane only as lane:private-N (writer_view) and copies that id."""
     qid, ledger = headline_world(tmp_path)
     v = run_gate(good_script(qid, story_item_id="lane:private-1"), ledger, cfg)
-    assert failed(v) == [] and evidence(v, "story_in_ledger") == "lane:backup-box"
+    assert failed(v) == [] and evidence(v, "story_in_ledger") == "lane:garden-shed"
 
 
 def test_a_raw_ledger_id_still_passes(tmp_path, cfg):  # positive control
     qid, ledger = headline_world(tmp_path)
-    v = run_gate(good_script(qid, story_item_id="lane:backup-box"), ledger, cfg)
-    assert failed(v) == [] and evidence(v, "story_in_ledger") == "lane:backup-box"
+    v = run_gate(good_script(qid, story_item_id="lane:garden-shed"), ledger, cfg)
+    assert failed(v) == [] and evidence(v, "story_in_ledger") == "lane:garden-shed"
 
 
 def test_an_unknown_view_alias_fails(tmp_path, cfg):
@@ -226,7 +226,7 @@ def test_an_unknown_view_alias_fails(tmp_path, cfg):
 
 
 @pytest.mark.parametrize("story", ["pr:demo-tool#99", "session:ffffffff", "session:", "session:pr:demo-tool#7",
-                                   "0a1b2c3d", "lane:backup-box"])
+                                   "0a1b2c3d", "lane:garden-shed"])
 def test_a_story_the_ledger_lacks_fails_without_echoing_it(tmp_path, cfg, story):
     _, qid, ledger = make_world(tmp_path)
     v = run_gate(good_script(qid, story_item_id=story), ledger, cfg)
@@ -274,7 +274,7 @@ def test_the_quote_text_is_scanned_with_the_script(tmp_path, cfg):
 @pytest.mark.parametrize("quote,check", [
     ("Zephyr shipped today and every single test passed.", "names"),
     ("The `pool` shipped today and every single test passed.", "no_code"),
-    ("We rehearsed the tree talk today and it went well.", "embargo"),
+    ("We rehearsed the pine fair today and it went well.", "embargo"),
 ])
 def test_a_verbatim_quote_can_still_fail_a_text_check(tmp_path, cfg, quote, check):
     _, qid, ledger = make_world(tmp_path, quote)
@@ -711,8 +711,8 @@ def test_a_blocked_name_fails_without_echoing_it(tmp_path, cfg):
     assert failed(v) == ["names"] and "zephyr" not in json.dumps(v).lower()
 
 
-@pytest.mark.parametrize("text", ["zephyr rules", "Zephyrs everywhere", "the backup box", "the backup_box",
-                                  "BACKUP-BOX",
+@pytest.mark.parametrize("text", ["zephyr rules", "Zephyrs everywhere", "the garden shed", "the garden_shed",
+                                  "GARDEN-SHED",
                                   "our mydiary-apps folder", "the secret garden", "Zep\u200bhyr rules",
                                   "\uff3a\uff45\uff50\uff48\uff59\uff52 rules", "Z\u0435phyr rules"],
                          ids=["lower", "inflected", "headline-spaced", "headline-underscore", "headline-caps",
@@ -723,7 +723,7 @@ def test_names_are_matched_like_the_ledger_matches_them(tmp_path, cfg, text):
     assert failed(v) == ["names"]
 
 
-@pytest.mark.parametrize("text", ["the offsite backup system", "a backup plan, boxed in", "the demo tool",
+@pytest.mark.parametrize("text", ["the greenhouse controller", "a garden plan, then a shed", "the demo tool",
                                   "a diary, an app", "a secret, a garden"])
 def test_text_near_a_name_passes(tmp_path, cfg, text):  # positive controls
     _, qid, ledger = make_world(tmp_path)
@@ -732,19 +732,19 @@ def test_text_near_a_name_passes(tmp_path, cfg, text):  # positive controls
 
 # ---- embargo ----
 
-@pytest.mark.parametrize("line", ["we rehearsed the tree talk ", "we rehearsed the tree-talk ",
-                                  "we rehearsed the Tree Talks ", "we rehearsed the \uff54\uff52\uff45\uff45 talk "],
+@pytest.mark.parametrize("line", ["we rehearsed the pine fair ", "we rehearsed the pine-fair ",
+                                  "we rehearsed the Pine Fairs ", "we rehearsed the \uff50\uff49\uff4e\uff45 fair "],
                          ids=["plain", "hyphen", "inflected", "fullwidth"])
 def test_an_embargo_term_fails(tmp_path, cfg, line):
     _, qid, ledger = make_world(tmp_path)
     story = [line + words(40), words(45), words(45)]
     v = run_gate(good_script(qid, **{"story.host": story}), ledger, cfg)
-    assert failed(v) == ["embargo"] and "tree" not in evidence(v, "embargo").lower()
+    assert failed(v) == ["embargo"] and "pine" not in evidence(v, "embargo").lower()
 
 
 def test_text_near_an_embargo_term_passes(tmp_path, cfg):  # positive control
     _, qid, ledger = make_world(tmp_path)
-    story = ["we heard some street talk " + words(40), words(45), words(45)]
+    story = ["we heard some spine fair " + words(40), words(45), words(45)]
     assert failed(run_gate(good_script(qid, **{"story.host": story}), ledger, cfg)) == []
 
 
@@ -955,16 +955,16 @@ def test_real_scanners_catch_hidden_hits(tmp_path, cfg, hidden, checks):
 # ---- review round: names ignore separators and need a word start (a camelCase change counts as one) ----
 
 @pytest.mark.parametrize("text", ["Zeph-yr rules", "Zeph*yr rules", "Zeph.yr rules", "OpenZephyr rules",
-                                  "the backupbox",
-                                  "the BackupBox", "the backup\nbox", "back up box", "Zeph\u00adyr rules",
-                                  "Zeph\u200cyr rules", "the Backup-Box"])
+                                  "the gardenshed",
+                                  "the GardenShed", "the garden\nshed", "gar den shed", "Zeph\u00adyr rules",
+                                  "Zeph\u200cyr rules", "the Garden-Shed"])
 def test_a_blocked_name_with_its_separators_moved_or_removed_fails(tmp_path, cfg, text):
     _, qid, ledger = make_world(tmp_path)
     v = run_gate(good_script(qid, **{"cold_open.on_screen": text}), ledger, cfg)
     assert failed(v) == ["names"]
 
 
-@pytest.mark.parametrize("text", ["openzephyr rules", "a backup plan, boxed in", "the backups box set"])
+@pytest.mark.parametrize("text", ["openzephyr rules", "a garden plan, then a shed", "the gardens shed set"])
 def test_a_name_run_into_a_lowercase_word_passes(tmp_path, cfg, text):
     """Decision: a name must start a word (after a non-letter-or-digit, or at a lower-to-upper case change), so a
     short private name cannot block every word that contains it; "openzephyr" is the accepted cost."""
@@ -1128,7 +1128,7 @@ def test_accented_prose_passes_and_an_accented_name_fails(tmp_path, cfg):
 
 def test_an_all_caps_name_fails(tmp_path, cfg):
     _, qid, ledger = make_world(tmp_path)
-    assert failed(run_gate(good_script(qid, **{"cold_open.on_screen": "the BACKUPBOX"}), ledger, cfg)) == ["names"]
+    assert failed(run_gate(good_script(qid, **{"cold_open.on_screen": "the GARDENSHED"}), ledger, cfg)) == ["names"]
 
 
 @pytest.mark.parametrize("text", ["MYZEPHYR rules", "Z3phyr rules"])
@@ -1298,10 +1298,10 @@ def test_numbers_in_the_chosen_quote_are_grounded_by_the_quote(tmp_path, cfg):
 
 def test_a_headline_items_label_and_why_ground_numbers_but_its_count_does_not(tmp_path, cfg):
     qid, ledger = grounded_world(tmp_path)
-    ledger["items"].append({"id": "lane:backup-box", "kind": "headline", "lane": "backup-box",
-                            "disclosure": "headline", "label": "the 2 backup boxes", "why": "so 1 dead disk is fine",
+    ledger["items"].append({"id": "lane:garden-shed", "kind": "headline", "lane": "garden-shed",
+                            "disclosure": "headline", "label": "the 2 garden sheds", "why": "so 1 dry tray is fine",
                             "count": 5})
-    for value, ok in (["2 backup boxes"], True), (["1 dead disk"], True), (["5 quiet fixes"], False):
+    for value, ok in (["2 garden sheds"], True), (["1 dry tray"], True), (["5 quiet fixes"], False):
         script = good_script(qid, **{"story.on_screen": value})
         assert numbers(run_gate(script, ledger, cfg))["pass"] is ok
 
@@ -1324,7 +1324,7 @@ CAFE = "caf" + chr(0xE9)
 def accented(cfg):
     """An accented embargo term, blocked name, hard_exclude entry and headline lane name."""
     lanes = {**cfg.lanes, CAFE + "-sync": Lane(CAFE + "-sync", "headline", "the sync tool", "so files stay in sync")}
-    return dataclasses.replace(cfg, lanes=lanes, blocked_names=("Zephyr", ZOE), embargo_terms=("tree talk", JOSE),
+    return dataclasses.replace(cfg, lanes=lanes, blocked_names=("Zephyr", ZOE), embargo_terms=("pine fair", JOSE),
                                hard_exclude=cfg.hard_exclude + (CAFE + "-notes",))
 
 
@@ -1412,8 +1412,8 @@ def _trio(tmp_path, checks=None, **over):
 
 
 def test_read_verified_returns_the_bytes_the_verdict_names(tmp_path):
-    v, s, l, script, ledger = _trio(tmp_path)
-    assert G.read_verified(v, s, l, G.REQUIRED) == (script, ledger, "ok")
+    v, s, lp, script, ledger = _trio(tmp_path)
+    assert G.read_verified(v, s, lp, G.REQUIRED) == (script, ledger, "ok")
 
 
 @pytest.mark.parametrize("over,why", [
@@ -1423,8 +1423,8 @@ def test_read_verified_returns_the_bytes_the_verdict_names(tmp_path):
     ({"schema": "other"}, "bad_schema"), ({"checks": []}, "missing:" + ",".join(G.REQUIRED)),
     ({"checks": "all"}, "missing:" + ",".join(G.REQUIRED))])
 def test_read_verified_refuses_a_verdict_that_does_not_pass_or_name_these_bytes(tmp_path, over, why):
-    v, s, l, *_ = _trio(tmp_path, **over)
-    assert G.read_verified(v, s, l, G.REQUIRED) == (None, None, why)
+    v, s, lp, *_ = _trio(tmp_path, **over)
+    assert G.read_verified(v, s, lp, G.REQUIRED) == (None, None, why)
 
 
 def test_read_verified_judges_the_check_list_like_accepts(tmp_path):
@@ -1436,33 +1436,33 @@ def test_read_verified_judges_the_check_list_like_accepts(tmp_path):
         "duplicate": (good + [good[0]], "duplicate_check:" + G.REQUIRED[0]),
     }
     for checks, why in cases.values():
-        v, s, l, *_ = _trio(tmp_path, checks=checks)
-        assert G.read_verified(v, s, l, G.REQUIRED) == (None, None, why)
-        assert G.accepts(v, s, G.REQUIRED, ledger_path=l) == (False, why)
+        v, s, lp, *_ = _trio(tmp_path, checks=checks)
+        assert G.read_verified(v, s, lp, G.REQUIRED) == (None, None, why)
+        assert G.accepts(v, s, G.REQUIRED, ledger_path=lp) == (False, why)
 
 
 def test_read_verified_takes_the_required_set_as_given(tmp_path):
-    v, s, l, script, ledger = _trio(tmp_path, checks=[{"name": "a", "pass": True}])
-    assert G.read_verified(v, s, l, ("a",)) == (script, ledger, "ok")
-    assert G.read_verified(v, s, l, ("a", "b")) == (None, None, "missing:b")
+    v, s, lp, script, ledger = _trio(tmp_path, checks=[{"name": "a", "pass": True}])
+    assert G.read_verified(v, s, lp, ("a",)) == (script, ledger, "ok")
+    assert G.read_verified(v, s, lp, ("a", "b")) == (None, None, "missing:b")
 
 
 def test_read_verified_refuses_unreadable_or_odd_files(tmp_path):
-    v, s, l, *_ = _trio(tmp_path)
+    v, s, lp, *_ = _trio(tmp_path)
     for bad, why in (("{broken", "unreadable:JSONDecodeError"), ("[]", "bad_schema"),
                      ('{"pass": true, "pass": true}', "duplicate_key")):
         v.write_text(bad)
-        assert G.read_verified(v, s, l, G.REQUIRED) == (None, None, why)
+        assert G.read_verified(v, s, lp, G.REQUIRED) == (None, None, why)
     v.unlink()
-    assert G.read_verified(v, s, l, G.REQUIRED) == (None, None, "unreadable:FileNotFoundError")
-    v, s, l, *_ = _trio(tmp_path)
-    l.unlink()
-    assert G.read_verified(v, s, l, G.REQUIRED) == (None, None, "unreadable:FileNotFoundError")
+    assert G.read_verified(v, s, lp, G.REQUIRED) == (None, None, "unreadable:FileNotFoundError")
+    v, s, lp, *_ = _trio(tmp_path)
+    lp.unlink()
+    assert G.read_verified(v, s, lp, G.REQUIRED) == (None, None, "unreadable:FileNotFoundError")
 
 
 def test_read_verified_never_raises_on_odd_required(tmp_path):
-    v, s, l, *_ = _trio(tmp_path)
-    assert G.read_verified(v, s, l, None)[2].startswith("error:")
+    v, s, lp, *_ = _trio(tmp_path)
+    assert G.read_verified(v, s, lp, None)[2].startswith("error:")
 
 
 # ---- read_verified_render: the read-once render verdict step ----
@@ -1480,8 +1480,8 @@ def _render_files(tmp_path, **over):
 
 
 def test_read_verified_render_returns_verdict_and_the_judged_bytes(tmp_path):
-    r, e, l, video, ledger = _render_files(tmp_path, stage="render")
-    v, subject, led, why = G.read_verified_render(r, e, l, G.RENDER_REQUIRED)
+    r, e, lp, video, ledger = _render_files(tmp_path, stage="render")
+    v, subject, led, why = G.read_verified_render(r, e, lp, G.RENDER_REQUIRED)
     assert why == "ok" and v["stage"] == "render" and subject == video and led == ledger
 
 
@@ -1489,33 +1489,33 @@ def test_read_verified_render_returns_verdict_and_the_judged_bytes(tmp_path):
                                       ({"subject_sha256": "0" * 64}, "sha_mismatch"),
                                       ({"ledger_sha256": "0" * 64}, "ledger_mismatch")])
 def test_read_verified_render_refuses_like_accepts(tmp_path, over, why):
-    r, e, l, *_ = _render_files(tmp_path, **over)
-    assert G.read_verified_render(r, e, l, G.RENDER_REQUIRED) == (None, None, None, why)
-    assert G.accepts(r, e, G.RENDER_REQUIRED, ledger_path=l) == (False, why)
+    r, e, lp, *_ = _render_files(tmp_path, **over)
+    assert G.read_verified_render(r, e, lp, G.RENDER_REQUIRED) == (None, None, None, why)
+    assert G.accepts(r, e, G.RENDER_REQUIRED, ledger_path=lp) == (False, why)
 
 
 def test_read_verified_render_never_raises_on_missing_or_duplicate(tmp_path):
-    r, e, l, *_ = _render_files(tmp_path)
+    r, e, lp, *_ = _render_files(tmp_path)
     r.write_text('{"schema": "a", "schema": "b"}')
-    assert G.read_verified_render(r, e, l, G.RENDER_REQUIRED)[3] == "duplicate_key"
+    assert G.read_verified_render(r, e, lp, G.RENDER_REQUIRED)[3] == "duplicate_key"
     r.unlink()
-    assert G.read_verified_render(r, e, l, G.RENDER_REQUIRED)[3].startswith("unreadable:")
+    assert G.read_verified_render(r, e, lp, G.RENDER_REQUIRED)[3].startswith("unreadable:")
 
 
 def test_read_verified_full_returns_the_parsed_verdict_for_any_subject(tmp_path):
-    r, e, l, video, ledger = _render_files(tmp_path, dry=False)
-    v, subject, led, why = G.read_verified_full(r, e, l, G.RENDER_REQUIRED)
+    r, e, lp, video, ledger = _render_files(tmp_path, dry=False)
+    v, subject, led, why = G.read_verified_full(r, e, lp, G.RENDER_REQUIRED)
     assert why == "ok" and v["dry"] is False and subject == video and led == ledger
-    assert G.read_verified_full(r, e, l, G.REQUIRED)[3].startswith("missing:")
+    assert G.read_verified_full(r, e, lp, G.REQUIRED)[3].startswith("missing:")
 
 
 # ---- the merge review's two direct tests ----
 
 def test_read_verified_render_without_a_ledger_path_skips_only_the_ledger_binding(tmp_path):
-    r, e, l, video, ledger = _render_files(tmp_path, stage="render", ledger_sha256="0" * 64)  # binding would fail
+    r, e, lp, video, ledger = _render_files(tmp_path, stage="render", ledger_sha256="0" * 64)  # binding would fail
     v, subject, led, why = G.read_verified_render(r, e, None, G.RENDER_REQUIRED)
     assert why == "ok" and subject == video and led is None and v["stage"] == "render"
-    assert G.read_verified_render(r, e, l, G.RENDER_REQUIRED)[3] == "ledger_mismatch"  # positive control: it is bound
+    assert G.read_verified_render(r, e, lp, G.RENDER_REQUIRED)[3] == "ledger_mismatch"  # positive control: it is bound
     # every other check still runs without a ledger
     for over, why in (({"schema": "x"}, "bad_schema"), ({"subject_sha256": "0" * 64}, "sha_mismatch"),
                       ({"pass": False}, "verdict_not_pass"),
@@ -1532,9 +1532,9 @@ def test_read_verified_render_without_a_ledger_path_skips_only_the_ledger_bindin
 
 @pytest.mark.parametrize("stage", ["voice", "text", "", None, 3])
 def test_read_verified_render_refuses_a_verdict_whose_stage_is_not_render(tmp_path, stage):
-    r, e, l, *_ = _render_files(tmp_path, stage=stage)
-    assert G.accepts(r, e, G.RENDER_REQUIRED, ledger_path=l) == (True, "ok")  # everything else passes
-    assert G.read_verified_render(r, e, l, G.RENDER_REQUIRED) == (None, None, None, "stage")
+    r, e, lp, *_ = _render_files(tmp_path, stage=stage)
+    assert G.accepts(r, e, G.RENDER_REQUIRED, ledger_path=lp) == (True, "ok")  # everything else passes
+    assert G.read_verified_render(r, e, lp, G.RENDER_REQUIRED) == (None, None, None, "stage")
     assert G.read_verified_render(r, e, None, G.RENDER_REQUIRED) == (None, None, None, "stage")
 
 

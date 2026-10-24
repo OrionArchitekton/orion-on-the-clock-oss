@@ -394,7 +394,7 @@ def _problem_log(path: Path, problems: list[str]) -> None:
 
 
 def run_stage(ctx) -> StageResult:
-    """The render stage. Every failure reason is a short code: stale_cleanup, settings_missing, missing:render_kit,
+    """The render stage. Every failure reason is a short code: stale_cleanup, settings_missing, missing:render.kit,
     gate_not_accepted, no_voice_lines, no_voice_manifest, voice_config_changed, voice_mismatch, compose:<class>,
     mix:<class>, hf_check_failed, hf_check, hf_render_failed, hf_render, hf_timeout, hf:<class>,
     render_probe:<code or class>, render_checks:<check names>."""

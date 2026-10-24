@@ -9,13 +9,13 @@ The config dir is `$ORION_CLOCK_CONFIG` (default `~/.config/orion-on-the-clock`)
   notify command);
 - voices.json: who speaks each line and how (daily.voiceconf; the host's reference recording is yours, never shipped);
 - lanes.json and embargo.json: what may appear and how (daily.config);
-- publish.json: private or public uploads (read by the publish stage).
+- publish.json: private or public uploads (read by the publish stage, daily.publish).
 
 Loading is strict and fails closed: a missing or unreadable file, an unknown key (a typo must never be ignored), a value
 of the wrong type or shape, or a required key left out raises SettingsError with a short code (`missing:show.series`,
 `bad:github.owner`, `unknown:show.serie`). The code names a key, never a value. Keys that only a later stage needs
-(channel id, say) may be absent here; that stage asks for them with `require`, which raises the same way, so nothing
-ever falls back to a default that publishes.
+(channel id, say) may be absent here; that stage asks for them with `require`, which raises the same way and names the
+key as settings.toml spells it (`missing:channel.id`), so nothing ever falls back to a default that publishes.
 """
 from __future__ import annotations
 
@@ -37,7 +37,11 @@ _HARNESS_ID = re.compile(r"[a-z][a-z0-9_]{0,31}\Z")
 _OWNER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\Z")  # a GitHub user or organization name
 _CHANNEL = re.compile(r"UC[A-Za-z0-9_-]{22}\Z")  # a YouTube channel id
 _HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]{0,252}\Z")  # an ssh destination: host, user@host or an alias
-_ENDPOINT = re.compile(r"(?:https?|wss?)://[^\s/]+(?:/\S*)?\Z")
+# A Chrome DevTools endpoint on this machine only: http://127.0.0.1:9222 (the remote debugging port) or the browser's
+# own ws://127.0.0.1:9222/devtools/browser/<id>. A DevTools port is full control of the signed-in browser, so an
+# address off the loopback is refused here and again by the Studio driver (release/studio.py).
+LOOPBACK_ENDPOINT = re.compile(r"(?:http|ws)://(?:127\.0\.0\.1|localhost|\[::1\]):[0-9]{2,5}"
+                               r"(?:/|/devtools/browser/[A-Za-z0-9-]{1,100})?\Z")
 _MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 _PUBLIC_HOST = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+\Z")
 _HANDLE = re.compile(r"@[A-Za-z0-9._-]{3,30}\Z")  # a YouTube handle, as the out card shows it
@@ -49,6 +53,18 @@ _WHISPER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}\Z")
 TTS_TARGETS = ("auto", "local", "remote")
 DEFAULT_HYPERFRAMES = ("hyperframes",)
 DEFAULT_WHISPER_MODEL = "small.en"
+
+
+# Field name -> the key as settings.toml spells it, so a missing-setting code names what the operator writes.
+TOML_KEYS = {
+    "series": "show.series", "host_name": "show.host_name", "disclosure": "show.disclosure", "handle": "show.handle",
+    "claude_projects": "sources.claude_projects", "codex_db": "sources.codex_db", "tracker": "sources.tracker",
+    "github_owner": "github.owner", "checks_dir": "checks.dir", "channel_id": "channel.id",
+    "channel_name": "channel.name", "home_channel_id": "channel.home_id", "browser_endpoint": "browser.endpoint",
+    "browser_lease": "browser.lease", "browser_release": "browser.release", "notify_command": "notify.command",
+    "tts_python": "tts.python", "tts_lock": "tts.lock", "tts_host": "tts.host", "tts_remote_python": "tts.remote_python",
+    "tts_remote_dir": "tts.remote_dir", "whisper_python": "whisper.python", "render_kit": "render.kit",
+}
 
 
 class SettingsError(Exception):
@@ -92,6 +108,8 @@ class Settings:
     channel_name: str | None = None
     home_channel_id: str | None = None
     browser_endpoint: str = DEFAULT_BROWSER
+    browser_lease: tuple = ()
+    browser_release: tuple = ()
     notify_command: tuple = ()
     handle: str | None = None
     tts_python: Path | None = None
@@ -109,10 +127,11 @@ class Settings:
 
     def require(self, key: str):
         """The value of an optional key a stage cannot run without (`channel_id`, say), or SettingsError
-        `missing:<key>`. A stage calls this instead of supplying a default of its own."""
+        `missing:<the key as settings.toml spells it>` (`missing:channel.id`). A stage calls this instead of supplying
+        a default of its own."""
         value = getattr(self, key, None)
         if value is None or value == "" or value == ():
-            raise SettingsError(f"missing:{key}")
+            raise SettingsError(f"missing:{TOML_KEYS.get(key, key)}")
         return value
 
     def harness_display(self) -> dict:
@@ -353,11 +372,15 @@ def load_settings(dir_: Path | None = None) -> Settings:
     ch.done()
 
     br = top.table("browser")
-    endpoint = _text(br, "endpoint", pattern=_ENDPOINT, cap=500) or DEFAULT_BROWSER
+    endpoint = _text(br, "endpoint", pattern=LOOPBACK_ENDPOINT, cap=200) or DEFAULT_BROWSER
+    lease = _argv(br, "lease") or ()
+    release = _argv(br, "release") or ()
     br.done()
+    if bool(lease) != bool(release):  # a lease that is never given back, or a release with nothing leased
+        raise SettingsError("missing:browser.release" if lease else "missing:browser.lease")
 
     nt = top.table("notify")
-    command = _texts(nt, "command", cap=4096) or ()
+    command = _argv(nt, "command") or ()
     nt.done()
 
     tts = top.table("tts")
@@ -399,7 +422,8 @@ def load_settings(dir_: Path | None = None) -> Settings:
         checks_dir=checks_dir, public_hosts=hosts if hosts is not None else DEFAULT_PUBLIC_HOSTS,
         redact_patterns=redact, writer_model=model, writer_budget_usd=budget, voice_style=style,
         voice_samples=samples, voice_tags=tags, avoid_words=avoid, channel_id=channel_id, channel_name=channel_name,
-        home_channel_id=home_channel_id, browser_endpoint=endpoint, notify_command=command, handle=handle,
+        home_channel_id=home_channel_id, browser_endpoint=endpoint, browser_lease=lease, browser_release=release,
+        notify_command=command, handle=handle,
         tts_python=tts_python, tts_lock=tts_lock, tts_target=tts_target, tts_host=tts_host,
         tts_remote_python=remote_python, tts_remote_dir=remote_dir, tts_remote_gpu_allow=gpu_allow,
         whisper_python=whisper_python, whisper_model=whisper_model, render_kit=render_kit,
