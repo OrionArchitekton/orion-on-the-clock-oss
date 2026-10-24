@@ -118,11 +118,11 @@ def test_a_dry_run_through_the_gate_passes_on_synthetic_logs(tmp_path):
     assert not (w["state"] / DAY).exists()  # the real day was never touched
 
 
-def test_a_full_dry_run_stops_closed_at_the_first_unported_stage(tmp_path):
+def test_a_full_dry_run_without_a_voices_file_stops_closed_at_the_voice_stage(tmp_path):
     w = world(tmp_path)
     done = run_cli(["--day", DAY, "--dry"], w["env"], cwd=tmp_path)
     assert done.returncode == 1
     status = json.loads((w["state"] / f"{DAY}-dry" / "status.json").read_text())["stages"]
     assert status["gate"]["state"] == "dry"
-    assert (status["voice"]["state"], status["voice"]["reason"]) == ("failed", "not_yet_ported")
+    assert (status["voice"]["state"], status["voice"]["reason"]) == ("failed", "voice_config:voices_file_unreadable")
     assert status["notify"]["state"] == "failed" and "render" not in status

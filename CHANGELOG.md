@@ -18,6 +18,21 @@ First public MIT release: the text half of the pipeline, ported as a sanitized c
   folder (seeded by copy for a later-stage rehearsal), sanitized reasons and documented exit codes.
 - Config layer: `ORION_CLOCK_CONFIG` and `ORION_CLOCK_STATE`, a strict `settings.toml` (time zone, show, sources,
   checks, writer, and the channel, browser, notify and TTS keys later stages read), commented examples.
-- The media and release stages are registered placeholders that fail closed.
+- Voice: the host lines in a cloned voice from the operator's own reference recording (hash checked before every
+  run), the confessional quote in its agent's built-in voice made distinct by an allowlisted ffmpeg chain (an agent
+  never gets a reference recording, and the plan proves by content that no agent line used the host's conditioning),
+  one Chatterbox run proved by its results file, local by default or on an optional GPU box over ssh (read-only
+  preflight, nothing remote ever stopped, one local fallback, run folders removed and pruned), faster-whisper word
+  times mapped onto the lines' own words with a coverage floor, a voice manifest, and an advisory host-line lint.
+  A dry run voices silence so the render can be rehearsed without a GPU.
+- Render: the timeline, karaoke captions and a HyperFrames composition (scoreboard with unknown counts left out, story
+  cards, Steal-this and confessional cards) whose text comes only from gated sources; a ducked music and cue mix at
+  -14 LUFS; HyperFrames from a configurable command with an optional sandbox prefix and its telemetry off; five render
+  checks, a contact sheet and a render verdict bound to the episode, the script, the ledger and the voices; failed
+  renders kept under rejected names and earlier passing renders archived (three kept).
+- Config: `voices.json`, and settings for the TTS and Whisper environments, the remote TTS host, the media kit, the
+  HyperFrames command and sandbox, and the channel handle.
+- The release stages (publish, notify) are registered placeholders that fail closed.
 
-Not bundled: Claude Code, the GitHub CLI, git, media, fonts, music or a voice reference. Bring your own.
+Not bundled: Claude Code, the GitHub CLI, git, ffmpeg, Node, HyperFrames, Chatterbox, faster-whisper, media, fonts,
+music or a voice reference. Bring your own (docs/media-kit.md).

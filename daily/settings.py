@@ -4,7 +4,10 @@ The config dir is `$ORION_CLOCK_CONFIG` (default `~/.config/orion-on-the-clock`)
 (default `~/.local/state/orion-on-the-clock`); daily.paths resolves both. The config dir holds:
 
 - settings.toml: the pluggable pieces (this module): time zone, show names, which sources run, the GitHub owner,
-  the text checks, the writer, and the pieces later stages use (channel, browser endpoint, notify command, TTS host);
+  the text checks, the writer, the voice and render toolchain (TTS and Whisper interpreters, an optional remote TTS
+  host, the media kit, the HyperFrames command) and the pieces the release stages use (channel, browser endpoint,
+  notify command);
+- voices.json: who speaks each line and how (daily.voiceconf; the host's reference recording is yours, never shipped);
 - lanes.json and embargo.json: what may appear and how (daily.config);
 - publish.json: private or public uploads (read by the publish stage).
 
@@ -37,6 +40,15 @@ _HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]{0,252}\Z")  # an ssh destination
 _ENDPOINT = re.compile(r"(?:https?|wss?)://[^\s/]+(?:/\S*)?\Z")
 _MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 _PUBLIC_HOST = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+\Z")
+_HANDLE = re.compile(r"@[A-Za-z0-9._-]{3,30}\Z")  # a YouTube handle, as the out card shows it
+# A path on the remote TTS host. ssh hands its command to the remote shell as one string, so every remote path is held
+# to plain characters that the shell never reads as syntax; "." and ".." segments are refused separately.
+_REMOTE_PATH = re.compile(r"/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+/?\Z")
+_PROCESS = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")  # a GPU process name as nvidia-smi prints it
+_WHISPER_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}\Z")
+TTS_TARGETS = ("auto", "local", "remote")
+DEFAULT_HYPERFRAMES = ("hyperframes",)
+DEFAULT_WHISPER_MODEL = "small.en"
 
 
 class SettingsError(Exception):
@@ -81,7 +93,19 @@ class Settings:
     home_channel_id: str | None = None
     browser_endpoint: str = DEFAULT_BROWSER
     notify_command: tuple = ()
+    handle: str | None = None
+    tts_python: Path | None = None
+    tts_lock: Path | None = None
+    tts_target: str = "auto"
     tts_host: str | None = None
+    tts_remote_python: str | None = None
+    tts_remote_dir: str | None = None
+    tts_remote_gpu_allow: tuple = ()
+    whisper_python: Path | None = None
+    whisper_model: str = DEFAULT_WHISPER_MODEL
+    render_kit: Path | None = None
+    render_command: tuple = DEFAULT_HYPERFRAMES
+    render_sandbox: tuple = ()
 
     def require(self, key: str):
         """The value of an optional key a stage cannot run without (`channel_id`, say), or SettingsError
@@ -167,6 +191,27 @@ def _texts(t: _Table, name: str, *, cap: int = 300, pattern: re.Pattern | None =
     if pattern is not None and not all(pattern.match(v) for v in value):
         raise SettingsError(f"bad:{t.key(name)}")
     return tuple(value)
+
+
+def _remote_path(t: _Table, name: str) -> str | None:
+    """An absolute path on the remote host in plain characters, kept without a trailing slash."""
+    value = _text(t, name, pattern=_REMOTE_PATH, cap=1024)
+    if value is None:
+        return None
+    value = value.rstrip("/")
+    if any(seg in (".", "..") for seg in value.split("/")):
+        raise SettingsError(f"bad:{t.key(name)}")
+    return value
+
+
+def _argv(t: _Table, name: str) -> tuple | None:
+    """A command as a list of arguments (never a shell string); a leading "~/" in an argument expands."""
+    value = _texts(t, name, cap=4096)
+    if value is None:
+        return None
+    if any("\n" in v or "\0" in v for v in value):
+        raise SettingsError(f"bad:{t.key(name)}")
+    return tuple(str(Path(v).expanduser()) if v.startswith("~/") else v for v in value)
 
 
 def _read(dir_: Path) -> dict:
@@ -266,6 +311,7 @@ def load_settings(dir_: Path | None = None) -> Settings:
     series = _text(show, "series", required=True, cap=80)
     host_name = _text(show, "host_name", required=True, cap=40)
     disclosure = _text(show, "disclosure", required=True, cap=200)
+    handle = _text(show, "handle", pattern=_HANDLE, cap=31)
     show.done()
 
     src = top.table("sources")
@@ -315,8 +361,35 @@ def load_settings(dir_: Path | None = None) -> Settings:
     nt.done()
 
     tts = top.table("tts")
+    tts_python = _path(tts, "python")
+    tts_lock = _path(tts, "lock")
+    tts_target = _text(tts, "target", cap=10) or "auto"
+    if tts_target not in TTS_TARGETS:
+        raise SettingsError("bad:tts.target")
     tts_host = _text(tts, "host", pattern=_HOST, cap=253)
+    remote_python = _remote_path(tts, "remote_python")
+    remote_dir = _remote_path(tts, "remote_dir")
+    gpu_allow = _texts(tts, "remote_gpu_allow", cap=64, pattern=_PROCESS) or ()
     tts.done()
+    if tts_host is not None:  # a remote host is useless without the two paths it runs from: name the one left out
+        for key, value in (("remote_python", remote_python), ("remote_dir", remote_dir)):
+            if value is None:
+                raise SettingsError(f"missing:tts.{key}")
+    elif tts_target == "remote":
+        raise SettingsError("missing:tts.host")
+
+    wh = top.table("whisper")
+    whisper_python = _path(wh, "python")
+    whisper_model = _text(wh, "model", pattern=_WHISPER_MODEL, cap=128) or DEFAULT_WHISPER_MODEL
+    wh.done()
+
+    rd = top.table("render")
+    render_kit = _path(rd, "kit")
+    render_command = _argv(rd, "hyperframes")
+    if render_command == ():
+        raise SettingsError("bad:render.hyperframes")
+    render_sandbox = _argv(rd, "sandbox") or ()
+    rd.done()
     top.done()
 
     return Settings(
@@ -326,5 +399,9 @@ def load_settings(dir_: Path | None = None) -> Settings:
         checks_dir=checks_dir, public_hosts=hosts if hosts is not None else DEFAULT_PUBLIC_HOSTS,
         redact_patterns=redact, writer_model=model, writer_budget_usd=budget, voice_style=style,
         voice_samples=samples, voice_tags=tags, avoid_words=avoid, channel_id=channel_id, channel_name=channel_name,
-        home_channel_id=home_channel_id, browser_endpoint=endpoint, notify_command=command, tts_host=tts_host,
+        home_channel_id=home_channel_id, browser_endpoint=endpoint, notify_command=command, handle=handle,
+        tts_python=tts_python, tts_lock=tts_lock, tts_target=tts_target, tts_host=tts_host,
+        tts_remote_python=remote_python, tts_remote_dir=remote_dir, tts_remote_gpu_allow=gpu_allow,
+        whisper_python=whisper_python, whisper_model=whisper_model, render_kit=render_kit,
+        render_command=render_command or DEFAULT_HYPERFRAMES, render_sandbox=render_sandbox,
     )

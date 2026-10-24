@@ -3,7 +3,8 @@ no real email addresses, no long dashes, no personal markers, and a .gitignore t
 are staged.
 
 The personal-marker denylist holds only sha256 prefixes (the markers themselves are never written here): the
-original author's home folder name, machine names, private channel ids, and private repo and product names. Each
+original author's home folder name, machine names, private channel ids, private repo and product names, and the hash
+prefix that identifies the private pipeline's voice reference recording. Each
 file is tokenized and every candidate (a token and its parts, the user part of a home path, a channel id) is hashed and
 looked up. A hit names the file and the token, so a fix is easy; the token is already in that file anyway."""
 from __future__ import annotations
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # (a session log, a voice sample, a rendered video) cannot slip through. Extend it deliberately.
 ALLOWED_FILES = {"LICENSE", ".gitignore", "pyproject.toml", "daily/script_schema.json"}
 ALLOWED_PATTERNS = ("*.md", "daily/*.py", "daily/sources/*.py", "daily/checks/*.py", "daily/tests/*.py",
-                    "config.example/*.json", "config.example/*.toml", "docs/examples/*.py")
+                    "daily/engine/*.html", "config.example/*.json", "config.example/*.toml", "docs/examples/*.py")
 MEDIA_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv", ".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".png",
                   ".jpg", ".jpeg", ".webp", ".gif", ".ttf", ".otf", ".woff", ".woff2", ".srt", ".vtt"}
 ARTIFACT_SUFFIXES = MEDIA_SUFFIXES | {".jsonl", ".sqlite", ".db", ".zst", ".har"}
@@ -47,7 +48,9 @@ DENY_TOKENS = frozenset({  # machine names, private repo and product names
     "8cfde6efdfc4ed5a", "948f99c20215fdb2", "96a4bc2602655473", "adeae880690a0084", "af3258a44c19a747",
     "b158623dcefd6013", "b2fa820ea30681b5", "b7c250c47019fa2b", "d09a8874fc377172", "ea677ca35a088b79",
     "f97fb47d80af8858", "fcf1d7decc4ba529", "1bfd8bc308632b62", "14faafdf20658fb4", "eb5e27d899cd83e5",
-    "7aeaa6e84de649e8", "c929d4fc5e25b5a5"})
+    "7aeaa6e84de649e8", "c929d4fc5e25b5a5",
+    "923ccab3fb2aa54c", "433e58a2d6a39e54", "f42ad6e9f822ba22", "f7b796f4f49b3262", "c34ece26823fd2ac",
+    "60f19f2d268603cb"})  # the last: the private voice reference recording's sha256 prefix
 DENY_HOME_USERS = frozenset({"a925617886e8799c"})  # the original author's home folder name
 DENY_CHANNELS = frozenset({"261a46a4e7422010", "5b89b3cc056ff93c"})  # the private pipeline's channel ids
 

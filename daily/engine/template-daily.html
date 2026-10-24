@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Anton"; src: url("assets/fonts/Anton.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+      @font-face { font-family: "Inter"; src: url("assets/fonts/InterVariable.ttf") format("truetype"); font-weight: 100 900; font-style: normal; }
+      :root { --navy: #020B29; --navy2: #0A1638; --line: #1C2B57; --copper: #E68249; --cream: #F4EAD5; --dim: #A9B3CE; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--navy); }
+      body { font-family: "Inter", sans-serif; color: var(--cream); }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .brand { position: absolute; left: 60px; top: 212px; max-width: 720px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; font-size: 32px; letter-spacing: 4px; color: var(--copper); }
+      .day { position: absolute; right: 60px; top: 212px; font-weight: 700; font-size: 32px; letter-spacing: 4px; color: var(--dim); }
+      .kicker { position: absolute; left: 60px; top: 270px; width: 960px; font-weight: 800; font-size: 34px; letter-spacing: 6px; color: var(--copper); opacity: 0; }
+      /* cold open */
+      .co-w { position: absolute; left: 60px; top: 500px; width: 960px; font-family: "Anton", sans-serif; font-size: 132px; line-height: 1.02; color: var(--cream); text-transform: uppercase; overflow-wrap: anywhere; }
+      .co-bar { position: absolute; left: 60px; top: 1200px; width: 0; height: 14px; background: var(--copper); }
+      /* scoreboard: up to four totals (an unknown one is left out), then one row per agent (1 to 6 rows end above y 1244) */
+      .sb-grid { position: absolute; left: 60px; top: 330px; width: 960px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .sb-t { height: 170px; border-radius: 24px; background: var(--navy2); border: 3px solid var(--line); padding: 14px 30px; opacity: 0; }
+      .sb-n { font-family: "Anton", sans-serif; font-size: 96px; line-height: 1; color: var(--copper); }
+      .sb-l { margin-top: 6px; line-height: 1.1; font-weight: 800; font-size: 26px; letter-spacing: 3px; color: var(--cream); }
+      .sb-rows { position: absolute; left: 60px; top: 730px; width: 960px; }
+      .sb-r { position: relative; height: 76px; margin-bottom: 10px; border-radius: 18px; background: var(--navy2); border: 2px solid var(--line); opacity: 0; }
+      .sb-r .g { position: absolute; left: 12px; top: 11px; width: 50px; height: 50px; border-radius: 50%; background: var(--hc); color: var(--navy); font-family: "Anton", sans-serif; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+      .sb-r .nm { position: absolute; left: 78px; top: 14px; font-weight: 800; font-size: 36px; color: var(--cream); white-space: nowrap; }
+      .sb-r .bar { position: absolute; left: 360px; top: 28px; width: 0; height: 18px; border-radius: 9px; background: var(--hc); }
+      .sb-r .v { position: absolute; right: 22px; top: 9px; font-family: "Anton", sans-serif; font-size: 50px; line-height: 56px; color: var(--hc); }
+      .sb-r .u { position: absolute; right: 120px; top: 25px; font-weight: 800; font-size: 22px; letter-spacing: 2px; color: var(--dim); }
+      .sb-r .na { position: absolute; right: 18px; top: 20px; padding: 2px 10px; border-radius: 8px; border: 2px solid var(--dim); font-weight: 800; font-size: 22px; letter-spacing: 2px; color: var(--dim); }
+      /* story */
+      .st-wrap { position: absolute; left: 60px; top: 380px; width: 960px; display: flex; flex-direction: column; gap: 36px; }
+      .st-c { position: relative; min-height: 270px; padding: 30px 36px 30px 110px; border-radius: 24px; background: var(--navy2); border: 3px solid var(--line); border-left: 12px solid var(--copper); font-weight: 800; font-size: 58px; line-height: 1.15; color: var(--cream); overflow-wrap: anywhere; opacity: 0; }
+      .st-c .n { position: absolute; left: 34px; top: 50%; margin-top: -34px; font-family: "Anton", sans-serif; font-size: 64px; line-height: 68px; color: var(--copper); }
+      /* steal this */
+      .sl-c { position: absolute; left: 60px; top: 420px; width: 960px; padding: 56px 48px; border-radius: 28px; background: var(--copper); color: var(--navy); font-family: "Anton", sans-serif; font-size: 110px; line-height: 1.08; text-transform: uppercase; overflow-wrap: anywhere; opacity: 0; }
+      /* confessional */
+      .cf-card { position: absolute; left: 60px; top: 320px; width: 960px; height: 200px; border-radius: 26px; background: var(--navy2); border: 3px solid var(--hc); display: flex; align-items: center; padding: 0 36px; gap: 30px; opacity: 0; }
+      /* Text on a round fill sits in an inner box with its own fill that stays inside the circle, so a contrast check
+         that reads the background from the text's bounding box never sees the page behind the circle's corners. */
+      .sb-r .g span, .cf-g span { display: block; padding: 2px 4px; background: var(--hc); color: var(--navy); }
+      .ou-like-t { display: block; padding: 4px 10px; background: var(--cream); color: var(--navy); }
+      .cf-g { flex: none; width: 130px; height: 130px; border-radius: 50%; background: var(--hc); color: var(--navy); font-family: "Anton", sans-serif; font-size: 56px; display: flex; align-items: center; justify-content: center; }
+      .cf-name { font-family: "Anton", sans-serif; font-size: 80px; color: var(--cream); overflow-wrap: anywhere; }
+      .cf-col { position: absolute; left: 60px; top: 600px; width: 960px; display: flex; flex-direction: column; gap: 28px; }
+      .cf-q { position: relative; padding: 34px 44px; border-radius: 26px; background: var(--cream); color: var(--navy); font-weight: 700; font-size: 60px; line-height: 1.22; overflow-wrap: anywhere; opacity: 0; }
+      .cf-m { font-family: "Anton", sans-serif; font-size: 90px; line-height: 0; color: var(--copper); vertical-align: -24px; margin-right: 12px; }
+      .cf-lbl { font-weight: 800; font-size: 36px; letter-spacing: 2px; color: var(--hc); overflow-wrap: anywhere; opacity: 0; }
+      /* out */
+      .ou-col { position: absolute; left: 60px; top: 380px; width: 960px; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+      .ou-t { width: 960px; font-family: "Anton", sans-serif; font-size: 92px; line-height: 1.05; color: var(--cream); overflow-wrap: anywhere; opacity: 0; }
+      .ou-sub { flex: none; width: 700px; height: 140px; border-radius: 70px; background: var(--copper); display: flex; align-items: center; justify-content: center; font-family: "Anton", sans-serif; font-size: 64px; letter-spacing: 3px; color: var(--navy); opacity: 0; }
+      .ou-like { flex: none; align-self: flex-end; margin-right: 40px; width: 200px; height: 200px; border-radius: 50%; background: var(--cream); color: var(--navy); display: flex; align-items: center; justify-content: center; font-family: "Anton", sans-serif; font-size: 54px; opacity: 0; }
+      .ou-h { width: 960px; text-align: center; font-weight: 800; font-size: 40px; letter-spacing: 4px; color: var(--copper); overflow-wrap: anywhere; opacity: 0; }
+      /* captions: karaoke word pop, above YouTube's bottom quarter */
+      #captions .cap { position: absolute; left: 60px; width: 860px; top: 1290px; text-align: center; opacity: 0; }
+      #captions .cap .box { display: inline-block; max-width: 860px; padding: 12px 26px; border-radius: 14px; background: rgba(2, 11, 41, 0.86); font-weight: 800; font-size: 54px; line-height: 1.2; color: var(--cream); overflow-wrap: anywhere; }
+      #captions .cap b { font-weight: 800; color: var(--copper); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="{{total}}" data-fps="30" data-width="1080" data-height="1920">
+__CLIPS__
+      <div id="chrome" class="clip" data-start="0" data-duration="{{total}}" data-track-index="2"></div>
+      <audio id="mix" src="assets/mix.wav" data-start="0" data-duration="{{total}}" data-volume="1"></audio>
+      <div id="captions" class="clip" data-start="0" data-duration="{{total}}" data-track-index="3"></div>
+    </div>
+    <script>
+      const SPEC = __SPEC__;
+      const T = __TIMING__;
+      const CAP = __CAPTIONS__;
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const IR = { immediateRender: false };
+      const mk = (tag, cls, html, parent, style) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (style) e.setAttribute("style", style); parent.appendChild(e); return e; };
+      const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const up = (t, at, d) => tl.fromTo(t, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: d || 0.4, ease: "expo.out", ...IR }, at);
+      const fin = (t, at, d) => tl.fromTo(t, { opacity: 0 }, { opacity: 1, duration: d || 0.35, ...IR }, at);
+      const punch = (t, at) => tl.fromTo(t, { opacity: 0, scale: 1.25 }, { opacity: 1, scale: 1, duration: 0.28, ease: "expo.out", ...IR }, at);
+      const count = (el, n, at) => { const o = { v: 0 }; el.textContent = "0"; tl.to(o, { v: n, duration: 1.0, ease: "power2.out", onUpdate: () => { el.textContent = String(Math.round(o.v)); } }, at); };
+      const C = {};
+
+      C.cold_open = (root, s0) => {
+        const w = mk("div", "co-w", esc(SPEC.cold_open.text), root);
+        const bar = mk("div", "co-bar", null, root);
+        // visible from frame 0 (the hook); only the scale settles
+        tl.fromTo(w, { scale: 1.12 }, { scale: 1, duration: 0.4, ease: "expo.out", ...IR }, 0);
+        tl.fromTo(bar, { width: 0 }, { width: 960, duration: 0.6, ease: "expo.out", ...IR }, s0 + 0.35);
+      };
+
+      C.scoreboard = (root, s0) => {
+        const S = SPEC.scoreboard, at = SPEC.cues.count;
+        fin(mk("div", "kicker", esc(SPEC.day + ", BY THE NUMBERS"), root), s0);
+        const grid = mk("div", "sb-grid", null, root);
+        // A total the ledger could not count (null: GitHub off, no tracker) is left out, never drawn as a zero.
+        [[S.prs, "PRS MERGED"], [S.arcs, "TASKS CLOSED"], [S.sessions, "AGENT SESSIONS"], [S.subagents, "HELPER AGENTS"]].filter(([n]) => n !== null && n !== undefined).forEach(([n, label], k) => {
+          const tile = mk("div", "sb-t", null, grid);
+          const num = mk("div", "sb-n", "0", tile);
+          mk("div", "sb-l", esc(label), tile);
+          up(tile, s0 + 0.15 + 0.12 * k);
+          count(num, n, at + 0.12 * k);
+        });
+        // One row per agent in the ledger's coverage; an unavailable agent gets a mark, never a zero. Bars scale
+        // within a unit.
+        const most = {};
+        S.rows.filter((r) => r.available).forEach((r) => { most[r.unit] = Math.max(most[r.unit] || 1, r.n); });
+        const box = mk("div", "sb-rows", null, root);
+        S.rows.forEach((r, k) => {
+          const row = mk("div", "sb-r", '<div class="g"><span>' + esc(r.glyph) + '</span></div><div class="nm">' + esc(r.display) + "</div>", box, "--hc:" + r.color);
+          const t = at + 0.5 + 0.1 * k;
+          up(row, t);
+          if (r.available) {
+            const bar = mk("div", "bar", null, row);
+            count(mk("div", "v", "0", row), r.n, t + 0.1);
+            if (r.unit !== "sessions") mk("div", "u", esc(r.unit.toUpperCase()), row);
+            const room = r.unit === "sessions" ? 470 : 330;
+            tl.fromTo(bar, { width: 0 }, { width: Math.round((room * r.n) / most[r.unit]), duration: 0.8, ease: "power2.out", ...IR }, t + 0.1);
+          } else {
+            mk("div", "na", "NO DATA TODAY", row);
+          }
+        });
+      };
+
+      C.story = (root, s0) => {
+        fin(mk("div", "kicker", "THE BUILD", root), s0);
+        const wrap = mk("div", "st-wrap", null, root);
+        SPEC.story.items.forEach((it, k) => {
+          const el = mk("div", "st-c", '<span class="n">' + (k + 1) + "</span>" + esc(it.text), wrap);
+          up(el, it.at);
+        });
+        // Fit: the cards share the band 380 to 1250. Each card's minimum height is its share of that band (at most
+        // 270 px); if the text still runs past 1250, step the font (and the gap) down, never below 40 px. Layout
+        // only (no transforms), so it cannot disturb the timeline; it runs again once the fonts have loaded.
+        const fit = () => {
+          const cards = wrap.querySelectorAll(".st-c"), n = cards.length;
+          let fs = 58, gap = 36;
+          for (;;) {
+            wrap.style.gap = gap + "px";
+            const mh = Math.min(270, Math.floor((1250 - 380 - gap * (n - 1)) / n));
+            cards.forEach((c) => { c.style.fontSize = fs + "px"; c.style.minHeight = mh + "px"; });
+            if (wrap.offsetTop + wrap.offsetHeight <= 1250 || fs <= 40) break;
+            fs -= 2;
+            gap = Math.max(16, gap - 2);
+          }
+        };
+        fit();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+      };
+
+      C.steal_this = (root, s0) => {
+        fin(mk("div", "kicker", "STEAL THIS", root), s0);
+        // The card has its own STEAL THIS header: drop that prefix if the line starts with it (keep the line if that is all it says)
+        const tip = SPEC.steal_this.text.replace(/^\s*steal\s+this\s*[:\-]?\s*/i, "") || SPEC.steal_this.text;
+        punch(mk("div", "sl-c", esc(tip), root), SPEC.steal_this.at);
+      };
+
+      C.confessional = (root, s0) => {
+        const F = SPEC.confessional;
+        root.style.setProperty("--hc", F.color);
+        const card = mk("div", "cf-card", '<div class="cf-g"><span>' + esc(F.glyph) + '</span></div><div class="cf-name">' + esc(F.display) + "</div>", root);
+        const col = mk("div", "cf-col", null, root);
+        const quote = mk("div", "cf-q", '<span class="cf-m">&ldquo;</span>' + esc(F.text), col);
+        const lbl = mk("div", "cf-lbl", esc(F.label), col);
+        // Fit: step the quote font down (never below 38 px) until the column, label included, ends above 1250.
+        const fitQ = () => {
+          for (let fs = 60; ; fs -= 2) {
+            quote.style.fontSize = fs + "px";
+            if (col.offsetTop + col.offsetHeight <= 1250 || fs <= 38) break;
+          }
+        };
+        fitQ();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitQ);
+        punch(card, SPEC.cues.harness_in);
+        up(quote, SPEC.cues.quote_in);
+        fin(lbl, SPEC.cues.quote_in + 0.3);
+      };
+
+      C.out = (root, s0) => {
+        const c = SPEC.cues;
+        fin(mk("div", "kicker", "STILL BUILDING", root), s0);
+        const col = mk("div", "ou-col", null, root);
+        up(mk("div", "ou-t", esc(SPEC.out.teaser), col), s0 + 0.15);
+        punch(mk("div", "ou-sub", "SUBSCRIBE", col), c.subscribe);
+        const like = mk("div", "ou-like", '<span class="ou-like-t">LIKE</span>', col);
+        tl.fromTo(like, { opacity: 0, scale: 0.4, rotation: -30 }, { opacity: 1, scale: 1, rotation: -10, duration: 0.45, ease: "back.out(2.2)", ...IR }, c.like);
+        if (SPEC.channel) up(mk("div", "ou-h", esc(SPEC.channel), col), c.like + 0.4);
+      };
+
+      const ORDER = T.order; // compose.SCENES, passed in the timing blob
+      for (const id of ORDER) {
+        if (!T.scenes[id]) continue;
+        if (id === "confessional" && !SPEC.confessional) continue;
+        const root = document.getElementById("sc-" + id);
+        if (!root) throw new Error("no clip for " + id);
+        C[id](root, T.scenes[id].start);
+      }
+      const chrome = document.getElementById("chrome");
+      mk("div", "brand", esc(SPEC.brand), chrome);
+      mk("div", "day", esc(SPEC.day), chrome);
+
+      const capRoot = document.getElementById("captions");
+      CAP.forEach((e) => {
+        const el = mk("div", "cap", null, capRoot);
+        mk("span", "box", e.words.map((w, i) => (i === e.active ? "<b>" + esc(w) + "</b>" : esc(w))).join(" "), el);
+        tl.set(el, { opacity: 1 }, e.start);
+        tl.set(el, { opacity: 0 }, e.end);
+      });
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

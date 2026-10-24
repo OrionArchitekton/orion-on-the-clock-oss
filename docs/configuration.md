@@ -26,6 +26,7 @@ settings file prints one line to stderr and exits 1 before any stage runs.
 | `show.series` | yes | The series name, in every description. |
 | `show.host_name` | yes | Who narrates the host lines, in the first person. |
 | `show.disclosure` | yes | The last line of every description (say so if the voice is synthetic). |
+| `show.handle` | no | Your channel handle (`@YourChannel`), shown on the closing card; leave out to show none. |
 | `sources.claude_code`, `sources.codex`, `sources.github` | no (all on) | Switch a built-in source off. At least one agent source stays on. |
 | `sources.claude_projects`, `sources.codex_db` | no | Where those logs live, when not in the default place. Absolute paths (or `~`). |
 | `sources.tracker` | no | Your tracker adapter file (docs/sources.md). |
@@ -40,11 +41,22 @@ settings file prints one line to stderr and exits 1 before any stage runs.
 | `channel.id`, `channel.name`, `channel.home_id` | for publishing | The YouTube channel to upload to, and an optional channel to switch back to. |
 | `browser.endpoint` | no | The Chrome DevTools endpoint the publish stage drives (default `http://127.0.0.1:9222`). |
 | `notify.command` | no | A command that receives each run's outcome; empty writes it to the state folder and prints it. |
-| `tts.host` | no | An ssh destination that runs the text to speech; empty runs it here. |
+| `tts.python` | for a real run voiced here | The Python of the environment Chatterbox is installed in. |
+| `tts.lock` | no | The lock file that keeps one Chatterbox at a time on this machine (default `~/.local/state/orion-on-the-clock/tts.lock`). |
+| `tts.target` | no | `auto` (default: the remote host when set, falling back here once), `local` or `remote`. |
+| `tts.host` | no | An ssh destination (alias, host or user@host) that voices on its GPU; empty voices here. |
+| `tts.remote_python`, `tts.remote_dir` | with `tts.host` | The Chatterbox Python and a scratch folder on that host (absolute, plain characters only). |
+| `tts.remote_gpu_allow` | no | GPU process names that may share the remote GPU (default none: any other process means busy). |
+| `whisper.python` | for a real run | The Python of the environment faster-whisper is installed in. |
+| `whisper.model` | no | The Whisper model (default `small.en`). |
+| `render.kit` | for render, dry runs too | Your media kit folder (docs/media-kit.md). |
+| `render.hyperframes` | no | The HyperFrames command as a list (default `["hyperframes"]`). |
+| `render.sandbox` | no | A command put in front of HyperFrames; `{timeout}` becomes the step's timeout in seconds (docs/how-it-works.md). |
 
-The `channel`, `browser`, `notify` and `tts` keys are read by stages that are not ported yet; they are validated now so
-a typo fails today rather than on the first upload. A stage that needs a key you left out (the channel id, say) stops
-with `missing:<key>` instead of choosing one.
+The `channel`, `browser` and `notify` keys are read by stages that are not ported yet; they are validated now so a typo
+fails today rather than on the first upload. A stage that needs a key you left out stops with `missing:<name>` instead
+of choosing one; the name is the setting's internal name (`missing:tts_python` means `tts.python`, `missing:render_kit`
+means `render.kit`).
 
 ### The host's voice
 
@@ -57,6 +69,24 @@ every line that can take one, and the so-what in plain words after every technic
 - `voice_tags`: short tags the host may close one beat with, at most once an episode.
 - `avoid_words`: words the host never says. The draft review flags them and spends its one repair on a draft that
   uses one. The built-in list is in `daily/voicelint.py` (`WRITERLY`).
+
+## voices.json
+
+Who speaks each line and how; see the comments in `config.example/voices.json` and the voice section of
+docs/media-kit.md.
+
+- `host`: the narrator. `ref` is your reference recording (a path on the machine that voices; `~` expands there) and
+  `sha256_prefix` the start of its sha256, checked before every real voicing. `params` and `params_cold_open` are
+  Chatterbox's `exaggeration`, `cfg_weight` and `temperature`; `post` an optional ffmpeg chain.
+- One entry per agent id that can appear in a day's ledger (`claude_code`, `codex`, each adapter's `harness`):
+  `display`, `glyph` (up to 4 characters) and `color` (`#RRGGBB`) label it on screen; `active: false` keeps its quotes
+  off the air; `params`; and `post`, an ffmpeg audio chain that must start with `asetrate=24000*` and may use only the
+  allowed audio filters. An agent never has a reference recording.
+- Keys starting with an underscore are notes. Anything else unknown, a missing key or a wrong type stops the voice
+  stage with `voice_config:<code>` naming the key.
+
+The file's sha256 is recorded when a day is voiced. Editing it afterwards makes that day's render refuse
+(`voice_config_changed`) until the day is voiced again.
 
 ## lanes.json
 
@@ -88,5 +118,8 @@ place to start: you watch each upload before you make it public yourself.
 One folder per recapped day (`2026-10-16/`), and a sibling for dry runs (`2026-10-16-dry/`) that a dry run never
 leaves. Inside a day's folder: `status.json` (one entry per stage), `run.lock`, `ledger.json`, `sources/github.jsonl`
 (the PR bodies quotes point at), `writer-prompt.txt` and `writer-run.json` (what the writer was sent and what it cost),
-`script.json` and `verdict.json` (the gate's checks, each with short evidence). `last-run.json` at the top records the
-day the last real run chose.
+`script.json` and `verdict.json` (the gate's checks, each with short evidence), then the media: `hostlint.json`,
+`voice/` (the takes, word times, the voice manifest and the TTS and Whisper logs), `build/` (the composition, the mix
+and the HyperFrames logs), `episode.mp4`, `render.json` and `contact-sheet.jpg`, the rejected copies of a failed
+render, and `previous/` (earlier passing renders). `last-run.json` at the top records the day the last real run chose.
+docs/how-it-works.md describes each file.

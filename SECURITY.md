@@ -30,6 +30,20 @@ It is not a sandbox, and it trusts the machine and the account it runs on.
   and missing required keys stop the run.
 - **Leaks through diagnostics.** Stage reasons and gate evidence hold codes, counts and check names only; paths are
   replaced before `status.json` is written.
+- **Unreviewed text on the air.** Voice and render read the script and ledger only through the text verdict, in one
+  read, so text edited after the gate is refused. The render holds voices.json and the voiced lines to the voice
+  manifest, and its verdict binds the episode's hash to the script, ledger and voices it was made from.
+- **The wrong voice.** The host's clone comes only from the recording `voices.json` names, checked against its sha256
+  prefix before any audio is made (here and again on a remote host). An agent voice can never carry a reference
+  recording, its conditioning is set fresh before every sentence, and the runner refuses a plan in which an agent's
+  conditioning matches the host's by content.
+- **Filter injection through voice settings.** An ffmpeg chain is checked against an allowlist of audio filters and
+  characters (no file names, no graph syntax) and reaches ffmpeg as one argument.
+- **Markup in on-screen text.** Every value reaches the composition as JSON with `<`, `>` and `&` escaped and is drawn
+  with text-only DOM calls; a long dash anywhere on screen stops the build.
+- **Someone else's GPU job.** The remote TTS preflight is read only: any GPU process not on your allow list means the
+  remote is busy and the run voices locally. Nothing remote is paused, unloaded or stopped, and a remote run ends under
+  its own timeout even if ssh drops.
 
 ## Not defended
 
@@ -45,6 +59,13 @@ It is not a sandbox, and it trusts the machine and the account it runs on.
 - **The model provider.** The writer sends the ledger (already filtered) to Claude through your own Claude Code
   login.
 - **What a viewer infers.** The show describes real work; a careful viewer learns what you build and when.
+- **The remote TTS host.** It receives the day's lines (gated text) and your voices.json, runs the runner as your ssh
+  user, and must hold your voice reference. Trust it as you trust this machine.
+- **HyperFrames and its browser.** The render runs a headless Chromium on a page built from gated data. Without
+  `render.sandbox` it has your network and your user's rights; the sandbox example in docs/how-it-works.md removes the
+  network and contains its processes.
+- **Your media kit and models.** Fonts, sounds, GSAP and the TTS and Whisper models are loaded as given; their licenses
+  and provenance are yours to check.
 
 ## Reporting
 

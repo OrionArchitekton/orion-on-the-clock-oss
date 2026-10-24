@@ -14,6 +14,8 @@ series = "My Agents on the Clock"
 host_name = "Alex"
 # Required. The last line of every description. If the narration is a synthetic voice, say so here.
 disclosure = "Narrated with an AI voice; agent lines are verbatim from logs."
+# Optional. Your channel handle, shown on the closing card under the subscribe button. Leave out to show none.
+# handle = "@YourChannel"
 
 [sources]
 # The built-in readers. Each is on unless switched off here. At least one agent source must stay on.
@@ -70,8 +72,8 @@ budget_usd = 2
 # Words the host never says. Leave out to use the built-in list (daily/voicelint.py WRITERLY).
 # avoid_words = ["delightful", "robust"]
 
-# The pieces below are read by stages that are not ported yet (voice, publish, notify). They are checked here so a
-# typo fails today, not on the first upload.
+# The pieces below are read by stages that are not ported yet (publish, notify). They are checked here so a typo
+# fails today, not on the first upload.
 
 [channel]
 # The YouTube channel the publish stage uploads to, by channel id (UC followed by 22 characters).
@@ -90,5 +92,35 @@ endpoint = "http://127.0.0.1:9222"
 command = []
 
 [tts]
-# Optional: an ssh destination that runs the text to speech. Leave out to run it on this machine.
+# Text to speech with Chatterbox (docs/how-it-works.md, the voice stage). A dry run needs none of this.
+# Required for a real run voiced on this machine: the Python of the environment Chatterbox is installed in.
+# python = "~/.local/share/chatterbox/venv/bin/python"
+# Optional: the lock file that keeps one Chatterbox at a time on this machine. Point your other TTS jobs at it too.
+# lock = "~/.local/state/orion-on-the-clock/tts.lock"
+# Where to voice: "auto" (the remote host when one is set, else here; a remote that cannot voice falls back to here
+# once), "local" (here only) or "remote" (the remote host only, failing when it cannot).
+# target = "auto"
+# Optional: a GPU box you can ssh to without a password prompt (an ssh config alias, host or user@host).
 # host = "gpu-box"
+# Required with host: the Chatterbox Python on that machine, and a scratch folder there this pipeline may use (plain
+# characters only: letters, digits, dot, dash, underscore and slash).
+# remote_python = "/opt/chatterbox/venv/bin/python"
+# remote_dir = "/var/tmp/orion-on-the-clock-tts"
+# GPU processes that may keep running on the remote GPU while it voices (a model server you share it with). Any other
+# process there means someone else is using it, and the run voices here instead. Nothing remote is ever stopped.
+# remote_gpu_allow = ["ollama"]
+
+[whisper]
+# Word timing for the captions with faster-whisper. Required for a real run: the Python of its environment.
+# python = "~/.local/share/faster-whisper/venv/bin/python"
+# model = "small.en"
+
+[render]
+# Required for the render stage, dry runs included: your media kit folder (fonts, music, sound cues, GSAP).
+# docs/media-kit.md lists every file it must hold and where to get free-licensed ones.
+# kit = "~/.local/share/orion-on-the-clock/kit"
+# The HyperFrames command, as a list (default: hyperframes on your PATH).
+# hyperframes = ["npx", "--no-install", "hyperframes"]
+# Optional: a command put in front of it, such as a sandbox script that cuts the network. "{timeout}" is replaced
+# by the step's timeout in seconds. docs/how-it-works.md has an example.
+# sandbox = ["~/bin/render-sandbox.sh", "{timeout}"]

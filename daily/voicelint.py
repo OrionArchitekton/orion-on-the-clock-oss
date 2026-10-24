@@ -1,7 +1,7 @@
 """The light voice pass's lint: the tells that make a narrated line sound written rather than said. Advisory.
 
 The writer uses it to decide whether a story draft spends its one repair (daily.writer.review), and the voice stage
-records what it left before any audio is made. Rules:
+records what it left before any audio is made (write_record: hostlint.json in the day's folder). Rules:
 
 - "heres": a "here's" opener or reveal;
 - "nobody": "nobody" or "no one";
@@ -15,6 +15,10 @@ never appeared when he talked unscripted, and about 28% of his sentences of six 
 from __future__ import annotations
 
 import re
+from pathlib import Path
+
+from daily import textcheck
+from daily.files import write_json
 
 PRONOUNS = frozenset("i i'm i've i'll i'd me my you you're you've you'll you'd your yourself we we're we've we'll "
                      "we'd us our let's guys".split())
@@ -90,3 +94,55 @@ class Linter:
 
 def lint_line(text: str) -> list:
     return Linter().lint_line(text)
+
+
+# ---- the host-line record (hostlint.json) ----
+
+RECORD_SCHEMA = "daily-build/hostlint/v1"
+UNAVAILABLE = ("Host-line lint unavailable: the lint raised, so no line was checked.\n"
+               "Advisory: nothing here blocks the build.")
+
+
+def host_lines(script: dict) -> list:
+    """(line id, text) of every host line, in episode order; the ids are the voice stage's. A confessional with no
+    quote has an empty host_intro, and an empty line is no line."""
+    out = [("cold_open", script["cold_open"]["host"]), ("scoreboard", script["scoreboard"]["host"])]
+    out += [(f"story_{i}", t) for i, t in enumerate(script["story"]["host"])]
+    out += [("steal_this", script["steal_this"]["host"]), ("confessional_intro", script["confessional"]["host_intro"]),
+            ("out", script["out"]["host"])]
+    return [(i, t) for i, t in out if t.strip()]
+
+
+def open_count(rec: dict):
+    """The record's open tells, or None when the lint was unavailable or the count is not a whole number. The voice
+    stage reads the record through here and never indexes rec["result"], which is None in that case."""
+    result = rec.get("result") if isinstance(rec, dict) else None
+    n = result.get("open") if isinstance(result, dict) else None
+    return n if isinstance(n, int) and not isinstance(n, bool) else None
+
+
+def report(lines: list, res: dict) -> str:
+    """A few plain lines for a person: the counts per rule, then each tell as (line id, rule, match)."""
+    head = (f"Host-line lint: {res['open']} open tell(s) in {len(lines)} host line(s); "
+            + ", ".join(f"{rule} {n}" for rule, n in res["counts"].items()) + ".")
+    body = [f"  {f['line']}: {f['rule']}: {f['match']}" for f in res["flags"]]
+    return "\n".join([head, *body, "Advisory: nothing here blocks the build."])
+
+
+def write_record(script: dict, out_path, avoid=None) -> dict:
+    """Lint the script's host lines (each read in its normal form, as the writer reads it, so an invisible character
+    cannot hide a tell), write the record to out_path atomically and return it. avoid: the operator's writerly words
+    (settings.toml `writer.avoid_words`; None for the built-in list). The record's lint is "ok" with the result
+    (flags, counts, open, kept, lines) and a report, or "unavailable" with no result and the reason "run" when the
+    lint raised. A reason is a code, never the exception's text."""
+    lines = [(i, textcheck.normal_form(t)) for i, t in host_lines(script)]
+    try:
+        res = Linter(avoid).lint(lines)
+        res["lines"] = len(lines)
+        record = {"schema": RECORD_SCHEMA, "advisory": True, "lint": "ok", "reason": None, "result": res,
+                  "report": report(lines, res)}
+    except Exception:  # advisory: the record says so
+        record = {"schema": RECORD_SCHEMA, "advisory": True, "lint": "unavailable", "reason": "run", "result": None,
+                  "report": UNAVAILABLE}
+    write_json(Path(out_path), record)
+    return record

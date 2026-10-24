@@ -839,7 +839,7 @@ def test_stages_map_to_their_modules():
                        "notify": "daily.notify"}
 
 
-@pytest.mark.parametrize("name", ["voice", "render", "publish", "notify"])
+@pytest.mark.parametrize("name", ["publish", "notify"])
 def test_the_unported_stages_are_placeholders_that_fail_closed(name, tmp_path):
     """Registered and importable, so a run that reaches one records a failure instead of skipping past it."""
     mod = importlib.import_module(dict(run.STAGES)[name])

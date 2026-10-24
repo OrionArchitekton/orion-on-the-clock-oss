@@ -149,14 +149,15 @@ def test_a_dry_run_through_the_gate_works_end_to_end_in_the_dry_directory(world)
     assert not world.real_dir.exists()  # the real day's directory is never even created
 
 
-def test_a_full_dry_run_stops_at_the_first_unported_stage(world):
-    """The media and release stages are placeholders that fail closed: a full run never skips past them."""
+def test_a_full_dry_run_stops_closed_at_the_voice_stage_without_a_voices_file(world):
+    """The real voice stage needs the operator's voices.json; without it a full run stops there, never skips past."""
     from daily import notify, voice
     world.stages.update({"daily.voice": voice, "daily.notify": notify})
     assert go() == 1
     st = dry_status(world)
-    assert st["voice"] == {**st["voice"], "state": "failed", "reason": "not_yet_ported"}
+    assert st["voice"] == {**st["voice"], "state": "failed", "reason": "voice_config:voices_file_unreadable"}
     assert st["notify"]["state"] == "failed" and "render" not in st and "publish" not in st
+    assert not world.real_dir.exists()
 
 
 def test_a_real_run_still_uses_the_real_directory(world):

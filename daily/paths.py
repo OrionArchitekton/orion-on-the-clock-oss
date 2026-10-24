@@ -9,6 +9,8 @@ PACKAGE = Path(__file__).resolve().parent
 REPO = PACKAGE.parent
 SCHEMA_PATH = PACKAGE / "script_schema.json"
 CHECKS_DIR = PACKAGE / "checks"  # the built-in text checks, loaded by file location (textcheck.load_module)
+ENGINE = PACKAGE / "engine"  # the HyperFrames composition template the render stage fills
+VOICES_FILE = "voices.json"  # in the config folder: who speaks each line and how (daily.voiceconf)
 ENV_CONFIG = "ORION_CLOCK_CONFIG"
 ENV_STATE = "ORION_CLOCK_STATE"
 DEFAULT_CONFIG = Path("~/.config/orion-on-the-clock")
@@ -24,6 +26,11 @@ STAGE_ORDER = ("collect", "write", "gate", "voice", "render", "publish", "notify
 
 def config_dir() -> Path:
     return Path(os.environ.get(ENV_CONFIG) or DEFAULT_CONFIG).expanduser()
+
+
+def voices_path() -> Path:
+    """The operator's voices.json (daily.voiceconf), beside settings.toml in the config folder."""
+    return config_dir() / VOICES_FILE
 
 
 def state_root() -> Path:

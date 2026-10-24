@@ -202,6 +202,8 @@ command = ["notify-send", "daily build"]
 
 [tts]
 host = "user@gpu-box"
+remote_python = "/opt/tts/bin/python"
+remote_dir = "/var/tmp/tts-runs"
 """
     s = load_settings(write(cfg_dir, text))
     assert s.codex is False and s.claude_projects == tmp_path / "claude" and s.tracker == tmp_path / "tracker.py"
@@ -227,3 +229,80 @@ def test_require_fails_closed_for_a_key_a_stage_needs(settings):
 def test_a_home_relative_path_expands(cfg_dir):
     s = load_settings(write(cfg_dir, SETTINGS.replace("[github]", "[sources]\ncodex_db = '~/elsewhere/state.sqlite'\n\n[github]", 1)))
     assert s.codex_db == Path.home() / "elsewhere/state.sqlite"
+
+
+# ---- the voice and render keys ----
+
+def test_the_media_keys_default_to_nothing_that_runs(settings):
+    assert settings.handle is None and settings.tts_python is None and settings.tts_lock is None
+    assert settings.tts_target == "auto" and settings.tts_remote_gpu_allow == ()
+    assert settings.whisper_python is None and settings.whisper_model == "small.en"
+    assert settings.render_kit is None and settings.render_command == ("hyperframes",) and settings.render_sandbox == ()
+    for key in ("tts_python", "whisper_python", "render_kit"):
+        with pytest.raises(SettingsError, match=f"^missing:{key}$"):
+            settings.require(key)
+
+
+@pytest.mark.parametrize("block,code", [
+    ("[show]\nhandle = 'NoAt'\n", "bad:show.handle"),
+    ("[tts]\npython = 'venv/bin/python'\n", "bad:tts.python"),
+    ("[tts]\nlock = 'tts.lock'\n", "bad:tts.lock"),
+    ("[tts]\ntarget = 'cloud'\n", "bad:tts.target"),
+    ("[tts]\ntarget = 'remote'\n", "missing:tts.host"),
+    ("[tts]\nhost = 'gpu-box'\nremote_dir = '/var/tmp/runs'\n", "missing:tts.remote_python"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python'\n", "missing:tts.remote_dir"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python'\nremote_dir = 'runs'\n", "bad:tts.remote_dir"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python'\nremote_dir = '/var/tmp/../etc'\n",
+     "bad:tts.remote_dir"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python'\nremote_dir = '/var/tmp/my runs'\n",
+     "bad:tts.remote_dir"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python;id'\nremote_dir = '/var/tmp/runs'\n",
+     "bad:tts.remote_python"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '~/bin/python'\nremote_dir = '/var/tmp/runs'\n",
+     "bad:tts.remote_python"),
+    ("[tts]\nhost = 'gpu-box'\nremote_python = '/opt/bin/python'\nremote_dir = '/'\n", "bad:tts.remote_dir"),
+    ("[tts]\nremote_gpu_allow = ['ollama', '-x']\n", "bad:tts.remote_gpu_allow"),
+    ("[tts]\nremote_gpu_allow = 'ollama'\n", "bad:tts.remote_gpu_allow"),
+    ("[whisper]\npython = 'python3'\n", "bad:whisper.python"),
+    ("[whisper]\nmodel = 'small en'\n", "bad:whisper.model"),
+    ("[whisper]\nmodle = 'small.en'\n", "unknown:whisper.modle"),
+    ("[render]\nkit = 'kit'\n", "bad:render.kit"),
+    ("[render]\nhyperframes = []\n", "bad:render.hyperframes"),
+    ("[render]\nhyperframes = 'npx hyperframes'\n", "bad:render.hyperframes"),
+    ("[render]\nsandbox = 'unshare -n'\n", "bad:render.sandbox"),
+    ("[render]\nkitt = '/a/kit'\n", "unknown:render.kitt"),
+])
+def test_the_media_keys_are_validated_when_present(cfg_dir, block, code):
+    text = SETTINGS.replace("[show]\n", block + "\n", 1) if block.startswith("[show]") else SETTINGS + "\n" + block
+    assert refused(cfg_dir, text) == code
+
+
+def test_every_media_key_loads_when_well_formed(cfg_dir, tmp_path):
+    text = SETTINGS.replace('disclosure = ', 'handle = "@Demo_Channel"\ndisclosure = ', 1) + f"""
+[tts]
+python = "{tmp_path / 'tts' / 'python'}"
+lock = "~/locks/tts.lock"
+target = "remote"
+host = "user@gpu-box"
+remote_python = "/opt/tts-env/bin/python"
+remote_dir = "/var/tmp/tts-runs/"
+remote_gpu_allow = ["ollama", "llama-server"]
+
+[whisper]
+python = "{tmp_path / 'whisper' / 'python'}"
+model = "distil-large-v3"
+
+[render]
+kit = "~/kit"
+hyperframes = ["npx", "--no-install", "hyperframes"]
+sandbox = ["~/bin/render-sandbox.sh", "{{timeout}}"]
+"""
+    s = load_settings(write(cfg_dir, text))
+    assert s.handle == "@Demo_Channel"
+    assert s.tts_python == tmp_path / "tts" / "python" and s.tts_lock == Path.home() / "locks" / "tts.lock"
+    assert (s.tts_target, s.tts_host, s.tts_remote_python) == ("remote", "user@gpu-box", "/opt/tts-env/bin/python")
+    assert s.tts_remote_dir == "/var/tmp/tts-runs" and s.tts_remote_gpu_allow == ("ollama", "llama-server")
+    assert s.whisper_python == tmp_path / "whisper" / "python" and s.whisper_model == "distil-large-v3"
+    assert s.render_kit == Path.home() / "kit"
+    assert s.render_command == ("npx", "--no-install", "hyperframes")
+    assert s.render_sandbox == (str(Path.home() / "bin" / "render-sandbox.sh"), "{timeout}")
