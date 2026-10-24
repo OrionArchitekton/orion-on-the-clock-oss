@@ -39,7 +39,8 @@ status.json, run.lock, receipts and archives; it never creates, changes or delet
 `--dry --from-stage <voice or later>` on a dry directory that lacks the gated text first seeds it by COPY from the real
 day (see _seed_dry); without a passing real text verdict it starts at collect in the dry directory.
 
-The terminal stays quiet: only a usage error, a settings error or a failed lock prints (to stderr).
+The terminal stays quiet: only a usage error, a settings error or a failed lock prints (to stderr), and the notify
+stage's default sink prints the run's one item (as a JSON line, to stdout) when no notify command is set.
 """
 from __future__ import annotations
 

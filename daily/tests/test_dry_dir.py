@@ -156,7 +156,7 @@ def test_a_full_dry_run_stops_closed_at_the_voice_stage_without_a_voices_file(wo
     assert go() == 1
     st = dry_status(world)
     assert st["voice"] == {**st["voice"], "state": "failed", "reason": "voice_config:voices_file_unreadable"}
-    assert st["notify"]["state"] == "failed" and "render" not in st and "publish" not in st
+    assert st["notify"]["state"] == "dry" and "render" not in st and "publish" not in st   # a rehearsal reports nothing
     assert not world.real_dir.exists()
 
 

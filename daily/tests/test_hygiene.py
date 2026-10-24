@@ -24,7 +24,8 @@ ROOT = Path(__file__).resolve().parents[2]
 # (a session log, a voice sample, a rendered video) cannot slip through. Extend it deliberately.
 ALLOWED_FILES = {"LICENSE", ".gitignore", "pyproject.toml", "daily/script_schema.json"}
 ALLOWED_PATTERNS = ("*.md", "daily/*.py", "daily/sources/*.py", "daily/checks/*.py", "daily/tests/*.py",
-                    "daily/engine/*.html", "config.example/*.json", "config.example/*.toml", "docs/examples/*.py")
+                    "daily/engine/*.html", "config.example/*.json", "config.example/*.toml", "docs/examples/*.py",
+                    "release/*.py", "systemd/*.service", "systemd/*.timer", "systemd/*.sh")
 MEDIA_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv", ".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".png",
                   ".jpg", ".jpeg", ".webp", ".gif", ".ttf", ".otf", ".woff", ".woff2", ".srt", ".vtt"}
 ARTIFACT_SUFFIXES = MEDIA_SUFFIXES | {".jsonl", ".sqlite", ".db", ".zst", ".har"}

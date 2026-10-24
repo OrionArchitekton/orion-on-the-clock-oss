@@ -19,8 +19,8 @@ DEFAULT_STATE = Path("~/.local/state/orion-on-the-clock")
 DEFAULT_CLAUDE_PROJECTS = Path("~/.claude/projects")
 DEFAULT_CODEX_DB = Path("~/.codex/state_5.sqlite")
 # The notify stage reason prefixes that mean the outcome reached the operator (run.py exits 5 for a failure so
-# reported). The notify stage itself is not ported yet; it must answer with one of these when it delivers.
-NOTIFY_REPORTED = ("notified", "already notified")
+# reported): sent now, sent by an earlier run, or already closed outside the stage (daily.notify).
+NOTIFY_REPORTED = ("notified", "already notified", "closed outside")
 STAGE_ORDER = ("collect", "write", "gate", "voice", "render", "publish", "notify")
 
 

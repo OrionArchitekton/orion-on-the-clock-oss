@@ -1,0 +1,24 @@
+# Example user unit. Copy it, the timer and the failure unit to ~/.config/systemd/user/ and edit ExecStart to the path
+# of your checkout (docs/runbook.md, "Install the timer").
+[Unit]
+Description=orion-on-the-clock: yesterday's agent work as one daily Short (private unless public mode is on)
+OnFailure=orion-on-the-clock-failed.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/orion-on-the-clock-oss/systemd/orion-on-the-clock-entry.sh
+# Your config and state folders, when they are not in the default places:
+# Environment=ORION_CLOCK_CONFIG=%h/.config/orion-on-the-clock
+# Environment=ORION_CLOCK_STATE=%h/.local/state/orion-on-the-clock
+# run.py exit 3 = another run of the same day holds the lock; exit 5 = a stage failed (or needed you, or the config
+# was bad) and the notify stage already reported it. Neither is a unit failure: OnFailure means only "died before
+# reporting" (exit 1 or a kill).
+SuccessExitStatus=3 5
+# Worst case with every timeout hit: the writer twice, a remote voicing attempt then the local fallback, Whisper, the
+# render and the upload child, about 30300 s, plus margin. A normal day takes minutes on a GPU and about an hour or
+# more when Chatterbox runs on the CPU. A test sums every stage constant and pins this.
+TimeoutStartSec=32400
+# systemctl --user stop: run.py gets SIGTERM, publish lets go of the browser, the next start resumes from status.json
+KillSignal=SIGTERM
+TimeoutStopSec=300
+Nice=10

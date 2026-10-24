@@ -21,7 +21,7 @@ dev = ["pytest>=8", "numpy>=1.26", "Pillow>=10"]
 orion-on-the-clock = "daily.run:main"
 
 [tool.setuptools]
-packages = ["daily", "daily.sources"]
+packages = ["daily", "daily.sources", "release"]
 
 [tool.setuptools.package-data]
 daily = ["script_schema.json", "checks/*.py", "engine/*.html"]

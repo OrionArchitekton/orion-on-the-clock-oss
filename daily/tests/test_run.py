@@ -840,11 +840,12 @@ def test_stages_map_to_their_modules():
 
 
 @pytest.mark.parametrize("name", ["publish", "notify"])
-def test_the_unported_stages_are_placeholders_that_fail_closed(name, tmp_path):
-    """Registered and importable, so a run that reaches one records a failure instead of skipping past it."""
+def test_the_release_stages_fail_closed_without_settings(name, tmp_path):
+    """Registered and importable; without settings (the channel, the disclosure, the notify command) each stops
+    instead of choosing a default."""
     mod = importlib.import_module(dict(run.STAGES)[name])
     res = mod.run_stage(Ctx(DAY, tmp_path, None, False))
-    assert res == StageResult(ok=False, reason="not_yet_ported")
+    assert res == StageResult(ok=False, reason="settings_missing")
 
 
 @pytest.mark.parametrize("name", ["collect", "write", "gate"])
@@ -1152,7 +1153,14 @@ def test_a_dry_failure_exits_1_and_a_clean_run_still_exits_0(env):
 
 
 def test_the_reported_prefixes_are_the_notify_contract():
-    assert paths.NOTIFY_REPORTED == ("notified", "already notified")
+    assert paths.NOTIFY_REPORTED == ("notified", "already notified", "closed outside")
+
+
+def test_a_failure_whose_item_was_closed_outside_counts_as_reported(env):
+    _all_stages(env)
+    env.behaviour["write"] = StageResult(ok=False, reason="writer_timeout")
+    env.behaviour["notify"] = StageResult(ok=True, reason="closed outside: failed")
+    assert go() == 5
 
 
 def test_day_due_builds_the_missed_day_for_an_early_wake(env):

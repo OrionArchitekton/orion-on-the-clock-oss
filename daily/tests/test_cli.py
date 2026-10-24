@@ -125,4 +125,5 @@ def test_a_full_dry_run_without_a_voices_file_stops_closed_at_the_voice_stage(tm
     status = json.loads((w["state"] / f"{DAY}-dry" / "status.json").read_text())["stages"]
     assert status["gate"]["state"] == "dry"
     assert (status["voice"]["state"], status["voice"]["reason"]) == ("failed", "voice_config:voices_file_unreadable")
-    assert status["notify"]["state"] == "failed" and "render" not in status
+    assert (status["notify"]["state"], status["notify"]["reason"]) == ("dry", "dry run: nothing sent")
+    assert "render" not in status
