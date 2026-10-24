@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Which of your repos may appear in an episode, and how. Copy this file to your config folder",
+    "(~/.config/orion-on-the-clock/ or $ORION_CLOCK_CONFIG) and replace every example entry.",
+    "lanes: repo name -> how it may appear. The key is the repo name (owner/name, a URL or a bare name; only",
+    "the last part counts). disclosure 'public': its merged PRs, tasks and agent quotes may be the story, and",
+    "'label' is how the narration names it. disclosure 'headline': private work that shows only as its label,",
+    "its 'why' and a count; its name, titles and text never reach the writer.",
+    "A repo that is not listed never appears in any text. It still counts toward the day's PR number.",
+    "hard_exclude: repos or folder names that never appear in any text and are left out of the PR and task",
+    "counts. A session that touched one (on any day) gives no quotes and no notes; it still counts as a session.",
+    "Entries are matched as substrings of paths, 3 characters minimum.",
+    "blocked_names: words that must never ship in a script (machine names, client names, code names).",
+    "Keys starting with an underscore are notes and are ignored."
+  ],
+  "lanes": {
+    "example-public-tool": {"disclosure": "public", "label": "the example tool", "why": "so the example works"},
+    "example-private-system": {"disclosure": "headline", "label": "the example private system",
+                               "why": "so the example stays private"}
+  },
+  "hard_exclude": ["example-personal-notes"],
+  "blocked_names": ["example-codename"]
+}

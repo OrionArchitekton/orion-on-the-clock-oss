@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "Who speaks each line and how. Copy this file to your config folder (~/.config/orion-on-the-clock/ or",
+    "$ORION_CLOCK_CONFIG) and edit it there. Keys starting with an underscore are notes and are ignored.",
+    "host: the narrator. 'ref' is YOUR reference recording (a WAV of clear speech, about 10 to 20 seconds) on the",
+    "machine that runs the text to speech; '~' expands there. Clone only a voice whose owner has agreed to it.",
+    "'sha256_prefix' is the start (16 to 64 hex characters) of the recording's sha256: every real run checks it, so",
+    "a swapped file stops the run. Get it with: sha256sum host-reference.wav | cut -c1-16",
+    "'params' are Chatterbox's settings for every host line; 'params_cold_open' for the first, punchier line.",
+    "'post' is an ffmpeg audio chain applied after synthesis ('' for none).",
+    "Every other entry is an agent, keyed by the agent id your settings use (claude_code, codex, or an adapter's",
+    "harness). Every agent that appears in a day's ledger needs an entry here. An agent voice is Chatterbox's",
+    "built-in voice made distinct by its 'post' chain (it must start with asetrate=24000*); it never has a reference",
+    "recording. 'display', 'glyph' (up to 4 characters) and 'color' label it on the scoreboard and the confessional",
+    "card. 'active': false keeps its quotes off the air.",
+    "Changing this file after a day is voiced makes that day's render refuse (voice_config_changed) until it is",
+    "voiced again: the episode always matches the voices it was made with."
+  ],
+  "schema": "daily-build/voices/v1",
+  "voices": {
+    "host": {
+      "display": "Host",
+      "ref": "~/.local/share/orion-on-the-clock/voice/host-reference.wav",
+      "sha256_prefix": "0000000000000000",
+      "params": {"exaggeration": 0.55, "cfg_weight": 0.45, "temperature": 0.8},
+      "params_cold_open": {"exaggeration": 0.7, "cfg_weight": 0.3, "temperature": 0.8},
+      "post": ""
+    },
+    "claude_code": {
+      "display": "Claude Code", "glyph": "CC", "color": "#F2A65A", "active": true,
+      "params": {"exaggeration": 0.5, "cfg_weight": 0.5, "temperature": 0.8},
+      "post": "asetrate=24000*1.06,aresample=24000,atempo=0.8774,equalizer=f=3200:t=q:w=1:g=3"
+    },
+    "codex": {
+      "display": "Codex", "glyph": "CX", "color": "#5CC8FF", "active": true,
+      "params": {"exaggeration": 0.4, "cfg_weight": 0.5, "temperature": 0.7},
+      "post": "asetrate=24000*0.9,aresample=24000,atempo=1.0333,highpass=f=100,lowpass=f=7500"
+    }
+  }
+}

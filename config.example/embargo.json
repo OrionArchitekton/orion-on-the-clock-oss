@@ -1,0 +1,9 @@
+{
+  "_comment": [
+    "Terms that must not appear while an embargo is active (an unannounced launch, a talk not yet given).",
+    "A term matches from a word start, ignoring case and separators: 'pine fair' also blocks 'Pine-Fairs'.",
+    "With active true there must be at least one term. Keys starting with an underscore are notes."
+  ],
+  "active": false,
+  "terms": []
+}

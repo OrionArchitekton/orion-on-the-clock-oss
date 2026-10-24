@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orion-on-the-clock"
+version = "0.1.0"
+description = "An automated daily YouTube Short that recaps what your AI coding agents did yesterday."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []  # the text half is standard library only; it calls the claude, gh and git CLIs
+
+[project.optional-dependencies]
+# The media half also runs ffmpeg, HyperFrames (Node), and Chatterbox and faster-whisper in their own environments
+# (docs/media-kit.md); these two are what it needs in this one.
+media = ["numpy>=1.26", "Pillow>=10"]
+dev = ["pytest>=8", "numpy>=1.26", "Pillow>=10"]
+
+[project.scripts]
+orion-on-the-clock = "daily.run:main"
+
+[tool.setuptools]
+packages = ["daily", "daily.sources", "release"]
+
+[tool.setuptools.package-data]
+daily = ["script_schema.json", "checks/*.py", "engine/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["daily/tests"]

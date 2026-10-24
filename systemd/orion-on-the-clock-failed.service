@@ -1,0 +1,10 @@
+# Example OnFailure unit: copy it beside orion-on-the-clock.service and edit ExecStart to the path of your checkout.
+[Unit]
+Description=orion-on-the-clock: report that the timer run failed before it could report
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/orion-on-the-clock-oss/systemd/orion-on-the-clock-failed.sh
+# Environment=ORION_CLOCK_CONFIG=%h/.config/orion-on-the-clock
+# Environment=ORION_CLOCK_STATE=%h/.local/state/orion-on-the-clock
+TimeoutStartSec=120

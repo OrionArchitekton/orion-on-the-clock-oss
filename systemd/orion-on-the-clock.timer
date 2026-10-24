@@ -1,0 +1,13 @@
+# Example user timer for orion-on-the-clock.service.
+[Unit]
+Description=orion-on-the-clock at 05:30 local time (catches up once on wake after a missed run)
+
+[Timer]
+# 05:30 is daily/day.py RUN_DUE, the time `--day due` counts from. When the machine's own time zone differs from
+# settings.toml timezone, add that zone here (OnCalendar=*-*-* 05:30:00 Europe/Berlin) so the two stay in step.
+OnCalendar=*-*-* 05:30:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
