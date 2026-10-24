@@ -55,7 +55,7 @@ only in that tab, closes it afterwards, and never closes the browser.
 that lease one and give it back. The lease command prints `{"ok": true, "data": {"endpoint": "<loopback ws url>"}}`,
 or `{"ok": false, "code": "BUSY"}` while another holder has it (the driver waits up to 40 minutes, then stops with
 `browser_busy`); the release command prints `{"ok": true, "data": {"stop": "clean"}}` (`signal` or `kill` also count as
-given back, with a warning). orion-browser (the orion-browser-oss project, MIT) speaks exactly
+given back, with a warning). [orion-browser](https://github.com/OrionArchitekton/orion-browser-oss) (MIT) speaks exactly
 this:
 
 ```toml

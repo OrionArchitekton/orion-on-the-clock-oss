@@ -182,7 +182,7 @@ docs/lessons.md is what building it taught.
 
 ## Credits
 
-Built by Dan Mercede's agents (Claude Code and Codex), from the pipeline behind "Dan's Agents on the Clock". The Studio
+Built by Dan Mercede's agents (Claude Code and Codex), from the pipeline behind "Dan's Agents on the Clock" ([@DanMercedeAI](https://www.youtube.com/@DanMercedeAI) on YouTube). Companion projects: [orion-browser](https://github.com/OrionArchitekton/orion-browser-oss) for a shared, leased browser pool and [orion-pm](https://github.com/OrionArchitekton/orion-pm-oss) for a coordination board. The Studio
 driver drives Chrome through [agent-browser](https://github.com/vercel-labs/agent-browser); the episodes are rendered
 with [HyperFrames](https://github.com/heygen-com/hyperframes), voiced with
 [Chatterbox](https://github.com/resemble-ai/chatterbox) and timed with

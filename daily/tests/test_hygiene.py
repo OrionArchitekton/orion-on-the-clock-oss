@@ -43,14 +43,14 @@ AUTHOR = re.compile(r"dan[\s._-]*mercede", re.IGNORECASE)
 AUTHOR_FILES = {"LICENSE", "README.md"}  # the copyright line and the origin story; nowhere else
 
 DENY_TOKENS = frozenset({  # machine names, private repo and product names
-    "010fc70e93310a5c", "0c59e091cf1c9f8c", "0cf44bf5e081060d", "1409968006d49ad1", "2879c35c5d4eb420",
-    "37b7b6222d0fe8e8", "41e9bcfeee72b974", "4cb9725cb36b38d5", "5a7b2e919d9eb13c", "5dcce5c5e9b9b202",
+    "010fc70e93310a5c", "0cf44bf5e081060d", "1409968006d49ad1", "2879c35c5d4eb420",
+    "37b7b6222d0fe8e8", "41e9bcfeee72b974", "5a7b2e919d9eb13c", "5dcce5c5e9b9b202",
     "6780e8436f199e61", "6cb784e0f985cba2", "785167a8b6b50bc4", "84544529c82916c8", "89c80b3e93435ce1",
     "8cfde6efdfc4ed5a", "948f99c20215fdb2", "96a4bc2602655473", "adeae880690a0084", "af3258a44c19a747",
     "b158623dcefd6013", "b2fa820ea30681b5", "b7c250c47019fa2b", "d09a8874fc377172", "ea677ca35a088b79",
     "f97fb47d80af8858", "fcf1d7decc4ba529", "1bfd8bc308632b62", "14faafdf20658fb4", "eb5e27d899cd83e5",
     "7aeaa6e84de649e8", "c929d4fc5e25b5a5",
-    "923ccab3fb2aa54c", "433e58a2d6a39e54", "f42ad6e9f822ba22", "f7b796f4f49b3262", "c34ece26823fd2ac",
+    "923ccab3fb2aa54c", "433e58a2d6a39e54", "f42ad6e9f822ba22", "c34ece26823fd2ac",
     "60f19f2d268603cb"})  # the last: the private voice reference recording's sha256 prefix
 DENY_HOME_USERS = frozenset({"a925617886e8799c"})  # the original author's home folder name
 DENY_CHANNELS = frozenset({"261a46a4e7422010", "5b89b3cc056ff93c"})  # the private pipeline's channel ids
