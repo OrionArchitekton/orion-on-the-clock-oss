@@ -1,0 +1,94 @@
+# orion-on-the-clock settings. Copy this file to your config folder (~/.config/orion-on-the-clock/settings.toml, or
+# $ORION_CLOCK_CONFIG/settings.toml) and edit it there. Never commit your real copy.
+#
+# Loading is strict: an unknown key, a wrong type or a missing required key stops the run with a short code such as
+# "missing:show.series". Nothing falls back to a default that publishes.
+
+# Required. The calendar day every source is cut to, as an IANA zone name.
+timezone = "America/Chicago"
+
+[show]
+# Required. The series name, as it appears in every description.
+series = "My Agents on the Clock"
+# Required. Who narrates the host lines, in the first person ("my agents").
+host_name = "Alex"
+# Required. The last line of every description. If the narration is a synthetic voice, say so here.
+disclosure = "Narrated with an AI voice; agent lines are verbatim from logs."
+
+[sources]
+# The built-in readers. Each is on unless switched off here. At least one agent source must stay on.
+claude_code = true                       # Claude Code session logs
+codex = true                             # Codex session logs
+github = true                            # PRs merged that day, through the gh CLI (needs [github] owner)
+# Where the logs live, when not in the default place.
+# claude_projects = "~/.claude/projects"
+# codex_db = "~/.codex/state_5.sqlite"
+
+# Optional: a tracker adapter (your board, issues, a task file) for tasks closed and still moving that day.
+# docs/sources.md has the contract and a worked example.
+# tracker = "~/.config/orion-on-the-clock/adapters/my_tracker.py"
+
+# Optional: counts-only adapters for other agents. Repeat the block for each one. docs/sources.md has the contract.
+# [[sources.adapters]]
+# harness = "my_agent"                   # lower case id: letters, digits, underscores
+# display = "My Agent"                   # how the agent is named on screen and in the narration
+# module = "~/.config/orion-on-the-clock/adapters/my_agent.py"
+
+[github]
+# Required while sources.github is on. The user or organization whose merged PRs count.
+owner = "your-github-name"
+# Which agent made a PR, by its branch name prefix. These are the defaults.
+# [github.harness_prefixes]
+# "claude/" = "claude_code"
+# "codex/" = "codex"
+
+[checks]
+# Hosts a shipped line may name in a URL. Everything else fails the gate's secrets check.
+public_hosts = ["youtube.com", "www.youtube.com"]
+# Your own private words as regular expressions, matched without case. A hit stops the line like a redactor hit.
+# Put plain names (machines, clients, code names) in lanes.json blocked_names instead.
+# redact_patterns = [
+#   { name = "machine", regex = '\bmy-(laptop|server)-\d+\b' },
+# ]
+# Optional: a folder holding your own redactor.py, slop_gate.py and secret_scan.py in place of the built-in ones in
+# daily/checks/ (same functions, same return shapes).
+# dir = "~/.config/orion-on-the-clock/checks"
+
+[writer]
+# The headless Claude Code call that writes the script.
+model = "sonnet"
+budget_usd = 2
+# How the host talks, one note per line. Leave out to use the built-in notes.
+# voice_style = [
+#   "Opens many sentences with So or And.",
+#   "Owns the work in the first person.",
+# ]
+# A few lines the host really said, as a style reference the writer never copies.
+# voice_samples = ["So that one surprised me, and here is why."]
+# Short tags the host may close one beat with.
+# voice_tags = ["Pretty cool, huh?"]
+# Words the host never says. Leave out to use the built-in list (daily/voicelint.py WRITERLY).
+# avoid_words = ["delightful", "robust"]
+
+# The pieces below are read by stages that are not ported yet (voice, publish, notify). They are checked here so a
+# typo fails today, not on the first upload.
+
+[channel]
+# The YouTube channel the publish stage uploads to, by channel id (UC followed by 22 characters).
+# id = "UCxxxxxxxxxxxxxxxxxxxxxx"
+# name = "My Channel"
+# Optional: a channel to switch the browser back to after an upload, if you keep it on another one.
+# home_id = "UCyyyyyyyyyyyyyyyyyyyyyy"
+
+[browser]
+# The Chrome DevTools endpoint the publish stage drives (a local Chrome started with --remote-debugging-port).
+endpoint = "http://127.0.0.1:9222"
+
+[notify]
+# A command that receives each run's outcome as JSON on stdin. Empty: the outcome is written to the state folder
+# and printed.
+command = []
+
+[tts]
+# Optional: an ssh destination that runs the text to speech. Leave out to run it on this machine.
+# host = "gpu-box"

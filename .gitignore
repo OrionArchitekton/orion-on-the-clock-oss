@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+
+# Media and voice samples are bring-your-own and never committed
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+*.opus
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.srt
+*.vtt
+
+# Agent session logs, databases and archives
+*.jsonl
+*.sqlite
+*.db
+*.zst
+*.har
+
+# Your real config and state live outside the repo by design; these catch a copy made here by mistake
+/settings.toml
+/lanes.json
+/embargo.json
+/publish.json
+state/
+.env*

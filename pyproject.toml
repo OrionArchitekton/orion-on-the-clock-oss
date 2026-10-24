@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orion-on-the-clock"
+version = "0.1.0"
+description = "An automated daily YouTube Short that recaps what your AI coding agents did yesterday."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []  # the text half is standard library only; it calls the claude, gh and git CLIs
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+orion-on-the-clock = "daily.run:main"
+
+[tool.setuptools]
+packages = ["daily", "daily.sources"]
+
+[tool.setuptools.package-data]
+daily = ["script_schema.json", "checks/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["daily/tests"]

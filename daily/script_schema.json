@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "day", "quiet", "quiet_reason", "story_item_id", "title", "description",
+               "cold_open", "scoreboard", "story", "steal_this", "confessional", "out"],
+  "properties": {
+    "schema": {"type": "string", "enum": ["daily-build/script/v1"]},
+    "day": {"type": "string"},
+    "quiet": {"type": "boolean"},
+    "quiet_reason": {"type": "string", "maxLength": 200},
+    "story_item_id": {"type": "string", "maxLength": 200},
+    "title": {"type": "string", "maxLength": 70},
+    "description": {"type": "string", "maxLength": 400},
+    "cold_open": {"type": "object", "additionalProperties": false, "required": ["host", "on_screen"],
+                  "properties": {"host": {"type": "string", "maxLength": 400},
+                                 "on_screen": {"type": "string", "maxLength": 42}}},
+    "scoreboard": {"type": "object", "additionalProperties": false, "required": ["host"],
+                   "properties": {"host": {"type": "string", "maxLength": 400}}},
+    "story": {"type": "object", "additionalProperties": false, "required": ["host", "on_screen"],
+              "properties": {"host": {"type": "array", "maxItems": 5, "items": {"type": "string", "maxLength": 400}},
+                             "on_screen": {"type": "array", "maxItems": 4,
+                                           "items": {"type": "string", "maxLength": 42}}}},
+    "steal_this": {"type": "object", "additionalProperties": false, "required": ["host", "on_screen"],
+                   "properties": {"host": {"type": "string", "maxLength": 400},
+                                  "on_screen": {"type": "string", "maxLength": 42}}},
+    "confessional": {"type": "object", "additionalProperties": false, "required": ["host_intro", "quote_id"],
+                     "properties": {"host_intro": {"type": "string", "maxLength": 300},
+                                    "quote_id": {"type": "string", "maxLength": 40}}},
+    "out": {"type": "object", "additionalProperties": false, "required": ["host", "teaser"],
+            "properties": {"host": {"type": "string", "maxLength": 400},
+                           "teaser": {"type": "string", "maxLength": 42}}}
+  }
+}

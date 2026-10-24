@@ -1,0 +1,9 @@
+{
+  "_comment": [
+    "How the publish stage uploads. 'private' is the default and the only safe one to start with: the video",
+    "is uploaded private, and you watch it before you make it public yourself.",
+    "'public' publishes without a human in the loop. Set it only after a run of private days you trust.",
+    "Keys starting with an underscore are notes."
+  ],
+  "visibility": "private"
+}
