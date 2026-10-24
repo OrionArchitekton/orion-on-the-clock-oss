@@ -1,7 +1,7 @@
 """The media stages are registered after the text gate and resolve to real modules; run.py carries a day from the gated
 text through voice and render: a dry rehearsal with the renderer faked, the same rehearsal end to end with only the
-HyperFrames command faked (real compose, mix, remux, probe, checks and contact sheet), and a real run with the TTS
-runner, Whisper and the renderer faked."""
+HyperFrames command faked (real compose, mix, remux, probe, checks and contact sheet), the rehearsal carried on through
+a dry publish and notify, and a real run with the TTS runner, Whisper and the renderer faked."""
 import importlib
 import json
 import sys
@@ -93,6 +93,32 @@ def test_a_dry_run_through_render_records_voice_and_render_as_dry(tmp_path, monk
     assert (d / "render-dry.json").exists() and not (d / "render.json").exists()
     assert gate.accepts(d / "render-dry.json", d / "episode-dry.mp4", gate.RENDER_REQUIRED) == (True, "ok")
     assert not (w / "voice").exists() and not list(w.glob("render*.json"))
+
+
+@needs_ffmpeg
+def test_a_dry_run_through_every_stage_rehearses_publish_and_notify_without_a_browser_or_a_report(tmp_path,
+                                                                                                    monkeypatch):
+    from daily import notify, publish
+    w = work_dir(tmp_path)
+    cfg = make_config(tmp_path / "run-cfg", kit=make_kit(tmp_path))
+    (cfg / "publish.json").write_text(json.dumps({"visibility": "public"}))   # even with public mode on
+    monkeypatch.setenv("ORION_CLOCK_STATE", str(tmp_path))
+    monkeypatch.setenv("ORION_CLOCK_CONFIG", str(cfg))
+    d = tmp_path / "2026-10-16-dry"
+    fake_render_steps(monkeypatch, d)
+    monkeypatch.setattr(publish, "_run_child", lambda *a, **k: pytest.fail("started the Studio driver"))
+    monkeypatch.setattr(notify, "send", lambda *a, **k: pytest.fail("sent a report"))
+    before = snapshot(w)
+    assert run.main([a for a in DRY_ARGS if a not in ("--until", "render")]) == 0
+    assert snapshot(w) == before  # the real day is only read
+    got = stages_of(d)
+    assert [got[n]["state"] for n in ("voice", "render", "publish", "notify")] == ["dry"] * 4
+    assert got["publish"]["reason"] == "dry_run" and got["notify"]["reason"] == "dry run: nothing sent"
+    item = json.loads((d / "upload-item.json").read_text())
+    assert item["dry"] is True and item["visibility"] == "public"
+    assert item["sha256"] == json.loads((d / "render-dry.json").read_text())["subject_sha256"]
+    assert not (d / "upload.json").exists() and not (d / "notify.json").exists()
+    assert not (tmp_path / "notify").exists() and not (tmp_path / "uploads").exists()
 
 
 def test_a_dry_run_without_a_kit_stops_closed_at_render(tmp_path, monkeypatch):
