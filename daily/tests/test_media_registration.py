@@ -263,6 +263,45 @@ def test_a_real_run_from_voice_to_render_ends_in_a_render_verdict_the_gate_accep
     assert not (tmp_path / "2026-10-16-dry").exists()
 
 
+@pytest.mark.skipif(not media_stack(), reason="needs ffmpeg, numpy and Pillow")
+def test_a_dry_rehearsal_from_render_after_a_real_voicing_renders_with_the_real_compose(tmp_path, monkeypatch):
+    """A day really voiced (Whisper words, the agent chain applied), then `--dry --from-stage render`: the rehearsal
+    copies only the gated text, voices silence in its own folder before the dry render (a dry build takes only dry
+    words), and the real compose, mix and checks pass with only the HyperFrames command faked. The real takes are never
+    copied into the rehearsal, and the real day is only read."""
+    w = work_dir(tmp_path)
+    runner = tmp_path / "bin" / "fake_runner.py"
+    runner.parent.mkdir()
+    runner.write_text(FAKE_RUNNER)
+    fake = tmp_path / "bin" / "fake_hyperframes.py"
+    fake.write_text(FAKE_HYPERFRAMES)
+    extra = (f"\n[tts]\npython = {toml(sys.executable)}\n\n[whisper]\npython = {toml(tmp_path / 'no-whisper')}\n"
+             f"\n[render]\nkit = {toml(make_sound_kit(tmp_path))}\nhyperframes = [{toml(sys.executable)}, {toml(fake)}]\n")
+    monkeypatch.setenv("ORION_CLOCK_STATE", str(tmp_path))
+    monkeypatch.setenv("ORION_CLOCK_CONFIG", str(make_config(tmp_path / "run-cfg", extra=extra)))
+    monkeypatch.setattr(voice, "TTS_RUNNER", runner)
+    monkeypatch.setattr(voiceconf, "ref_ok", lambda v: (True, REF))
+    monkeypatch.setattr(align, "run_whisper", heard_every_word)
+    files.write_json(w / "status.json", {"day": DAY.isoformat(), "stages": {
+        n: {"state": "done", "reason": "", "at": "2026-10-17T12:30:00Z"} for n in ("collect", "write", "gate")}})
+    assert run.main(["--day", DAY.isoformat(), "--from-stage", "voice", "--until", "voice"]) == 0, stages_of(w)
+    assert json.loads((w / "voice" / "cold_open.words.json").read_text())["source"] == "whisper"
+    before = snapshot(w)
+    d = tmp_path / "2026-10-16-dry"
+    assert run.main(["--day", DAY.isoformat(), "--from-stage", "render", "--until", "render", "--dry"]) == 0, \
+        stages_of(d)
+    assert snapshot(w) == before
+    got = stages_of(d)
+    assert [got[n]["state"] for n in ("collect", "write", "gate")] == ["done"] * 3
+    assert (got["voice"]["state"], got["render"]["state"]) == ("dry", "dry"), got
+    lines = json.loads((d / "voice" / "lines.json").read_text())
+    assert {json.loads((d / "voice" / f"{ln['id']}.words.json").read_text())["source"] for ln in lines} == {"dry"}
+    assert not (d / "voice" / "confessional.raw.wav").exists()   # no real take was copied in
+    v = json.loads((d / "render-dry.json").read_text())
+    assert v["pass"] is True and v["dry"] is True
+    assert gate.accepts(d / "render-dry.json", d / "episode-dry.mp4", gate.RENDER_REQUIRED) == (True, "ok")
+
+
 @needs_ffmpeg
 def test_a_real_run_without_the_tts_interpreter_stops_closed_at_voice(tmp_path, monkeypatch):
     w = work_dir(tmp_path)

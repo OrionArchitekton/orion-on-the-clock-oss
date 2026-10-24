@@ -67,9 +67,11 @@ very bytes that are then parsed); `voices.json` from your config folder, once, h
 9. Apply each line's ffmpeg chain (agent voices: a pitch step and a tempo step, perhaps an equalizer or a light echo),
    keeping the untouched take. The chain is checked against an allowlist of audio filters, so it cannot read or write
    a file.
-10. faster-whisper listens to each line (an agent line on its clean take; its length must agree with the final take at
-    the chain's speed, else `voice:raw_length`). Its timed words are mapped onto the line's own words, so captions never
-    show a recognizer's spelling, and coverage is the share of the line's words it heard. A line under 60% fails the
+10. faster-whisper listens to each line (a line with a chain, host or agent, on its clean take; its length must agree
+    with the final take at the chain's speed, else `voice:raw_length`, and the word times it gives for the clean take
+    are divided by that speed so they fall where the words are in the final take). Its timed words are mapped onto the
+    line's own words, so captions never show a recognizer's spelling, and coverage is the share of the line's words it
+    heard. A line under 60% fails the
     stage (`align_coverage:<line>=<coverage>`).
 
 **Where voicing runs** (settings.toml `tts.target`): `local` runs the runner on this machine with `tts.python`;
@@ -85,7 +87,8 @@ outcome; dated folders older than a week are pruned. A fallback is recorded as `
 `voice_config:<code>` (voices.json missing or invalid; the code names the key, such as `missing:host.ref`),
 `voice_missing:<agents>`, `voice_lines:<class>`, `missing:whisper.python`, `missing:tts.python`, `voice_ref:<code>`,
 `voice_config_changed`, `align_coverage:...`, and `voice:<code>` (`tts_runner_failed`, `tts_results_unreadable`,
-`tts_results_ids`, `tts_results_ref`, `tts_wav_missing`, `raw_length`, `tts_remote_<code>` when the target is
+`tts_results_ids`, `tts_results_ref`, `tts_wav_missing`, `raw_length`, `chain_speed` (a chain whose speed is not a
+positive number), `tts_remote_<code>` when the target is
 `remote`) or `voice:<class>` for anything else (such as `voice:TimeoutExpired`).
 
 ## render
@@ -268,8 +271,10 @@ timer's failure unit fires only for a run that died before it could report.
 
 `python3 -m daily.run --day yesterday --until render --dry` runs every stage up to render in `<state>/<day>-dry/`:
 the writer is called, the voice is silence, and the render is real (HyperFrames, the mix and the five checks) with the
-duration window applied to the silent episode. `--dry --from-stage voice` copies a gated real day's text into the dry
-folder first, so you can rehearse the media for a day whose script already passed, without calling the writer again.
+duration window applied to the silent episode. `--dry --from-stage voice` (or `render`) copies a gated real day's text
+into the dry folder first, so you can rehearse the media for a day whose script already passed, without calling the
+writer again. The real voice takes are never copied: a dry build takes only dry words, so a rehearsal from render
+voices silence in the dry folder first (a dry voicing already there is reused).
 Open `contact-sheet-dry.jpg` to see the layout, and `episode-dry.mp4` to hear the mix around the silence. Running on
 through publish (`--dry` with no `--until`) writes the dry `upload-item.json` the driver would get, and notify sends
 nothing: a rehearsal never starts a browser and never reports.

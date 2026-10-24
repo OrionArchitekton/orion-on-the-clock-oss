@@ -19,7 +19,7 @@ from types import SimpleNamespace
 import pytest
 
 import media_helpers as M
-from daily import align, compose, files, gate, paths, tts_plan, tts_remote, tts_runner, voice, voicelint, voiceconf
+from daily import align, compose, downstream, files, gate, paths, tts_plan, tts_remote, tts_runner, voice, voicelint, voiceconf
 from daily.stage import Ctx
 
 DAY = M.DAY
@@ -1052,7 +1052,7 @@ def test_a_hostlint_link_is_removed_not_followed(tmp_path):
 def test_a_cleanup_that_fails_stops_the_stage_with_a_code(tmp_path, monkeypatch):
     w = M.work_dir(tmp_path)
     (w / "voice").mkdir()
-    monkeypatch.setattr(voice.shutil, "rmtree", lambda p: (_ for _ in ()).throw(PermissionError("/home/someone/x")))
+    monkeypatch.setattr(downstream.shutil, "rmtree", lambda p: (_ for _ in ()).throw(PermissionError("/home/someone/x")))
     monkeypatch.setattr(gate, "read_verified", lambda *a, **k: (_ for _ in ()).throw(AssertionError("gate after a bad clean")))
     r = voice.run_stage(ctx(w))
     assert (r.ok, r.reason) == (False, "stale_cleanup")
@@ -2054,6 +2054,70 @@ def test_a_final_take_within_the_allowed_skew_aligns(tmp_path, monkeypatch, skew
 def test_a_final_take_outside_the_allowed_skew_is_refused(tmp_path, monkeypatch, skew, chain):
     with pytest.raises(voice.VoiceError):
         aligned_with_a_final_take_that_is_off_by(tmp_path, monkeypatch, skew, chain)
+
+
+# ---- a chain that changes speed: Whisper hears the raw take, the captions follow the final one ----
+
+SPEED_CHAINS = [("host", "asetrate=24000*0.5,aresample=24000", 0.5),
+                ("codex", "asetrate=24000*1.06,aresample=24000,atempo=0.8774", 0.93)]
+SIX = "one two three four five six"
+
+
+def heard_but(missing):
+    def whisper(jobs, manifest, *args, **kw):
+        for j in jobs:
+            Path(j["out"]).write_text(json.dumps([{"word": t, "start": 0.4 * i, "end": 0.4 * (i + 1)}
+                                                  for i, t in enumerate(j["text"].split()) if t != missing]))
+    return whisper
+
+
+def aligned_at(tmp_path, monkeypatch, voice_id, chain, speed, missing=None):
+    fast_audio(monkeypatch)
+    write_wav(tmp_path / "line.raw.wav", 2.4)               # six words, 0.4 s each, as Whisper hears the raw take
+    write_wav(tmp_path / "line.wav", 2.4 / speed)           # the take the chain made, at its speed
+    monkeypatch.setattr(align, "run_whisper", heard_but(missing))
+    line = {"id": "line", "scene": "story", "voice": voice_id, "text": SIX, "params": {}}
+    covs = voice.align_lines([line], tmp_path, {"line": chain})
+    return covs, json.loads((tmp_path / "line.words.json").read_text())
+
+
+@pytest.mark.parametrize("voice_id,chain,speed", SPEED_CHAINS)
+def test_raw_take_word_times_are_scaled_by_the_chain_speed(tmp_path, monkeypatch, voice_id, chain, speed):
+    assert voice.chain_speed(chain) == pytest.approx(speed, abs=1e-3)
+    covs, rec = aligned_at(tmp_path, monkeypatch, voice_id, chain, speed)
+    assert covs == [("line", 1.0)] and rec["coverage"] == 1.0
+    assert [w["start"] for w in rec["words"]] == pytest.approx([0.4 * i / speed for i in range(6)], abs=0.01)
+    assert [w["end"] for w in rec["words"]] == pytest.approx([0.4 * (i + 1) / speed for i in range(6)], abs=0.01)
+    assert rec["words"][-1]["end"] <= rec["dur"] + 1e-6           # the last word ends with the final take
+
+
+@pytest.mark.parametrize("voice_id,chain,speed", SPEED_CHAINS)
+def test_scaling_keeps_coverage_honest(tmp_path, monkeypatch, voice_id, chain, speed):
+    covs, rec = aligned_at(tmp_path, monkeypatch, voice_id, chain, speed, missing="four")
+    assert covs == [("line", pytest.approx(5 / 6, abs=1e-3))] and rec["coverage"] == pytest.approx(5 / 6, abs=1e-3)
+    assert rec["words"][4]["start"] == pytest.approx(0.4 * 4 / speed, abs=0.01)   # "five", heard, scaled
+
+
+@pytest.mark.parametrize("chain", ["asetrate=24000*0,aresample=24000", "asetrate=24000*-1,aresample=24000"])
+def test_a_chain_whose_speed_is_not_positive_is_refused_with_a_code(tmp_path, monkeypatch, chain):
+    fast_audio(monkeypatch)
+    write_wav(tmp_path / "line.raw.wav", 2.4)
+    write_wav(tmp_path / "line.wav", 2.4)
+    monkeypatch.setattr(align, "run_whisper", heard_but(None))
+    line = {"id": "line", "scene": "story", "voice": "host", "text": SIX, "params": {}}
+    with pytest.raises(voice.VoiceError) as e:
+        voice.align_lines([line], tmp_path, {"line": chain})
+    assert voice.failure_code(e.value) == "voice:chain_speed"
+
+
+def test_a_line_without_a_chain_keeps_whisper_times_as_they_are(tmp_path, monkeypatch):
+    fast_audio(monkeypatch)
+    write_wav(tmp_path / "line.wav", 2.4)
+    monkeypatch.setattr(align, "run_whisper", heard_but(None))
+    line = {"id": "line", "scene": "story", "voice": "host", "text": SIX, "params": {}}
+    voice.align_lines([line], tmp_path)
+    rec = json.loads((tmp_path / "line.words.json").read_text())
+    assert [w["start"] for w in rec["words"]] == pytest.approx([0.4 * i for i in range(6)], abs=0.01)
 
 
 def test_align_lines_hands_whisper_the_interpreter_and_model(tmp_path, monkeypatch):

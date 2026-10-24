@@ -22,13 +22,13 @@ so a second lock around it here would make the runner wait out its full timeout 
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
-from daily import align, compose, files, gate, paths, tts_remote, tts_runner, voicelint, voiceconf
+from daily import align, compose, downstream, files, gate, paths, tts_remote, tts_runner, voicelint, voiceconf
 from daily.settings import SettingsError
 from daily.stage import StageResult
 
@@ -64,8 +64,8 @@ class VoiceError(RuntimeError):
 # The only VoiceError messages the real path raises after lines are built: a fixed token set, so a reason can carry the
 # code and never free text. Any other message (or any other exception) reports as its class name.
 VOICE_CODES = frozenset({"tts_runner_failed", "tts_results_unreadable", "tts_results_ids", "tts_results_ref",
-                         "tts_wav_missing", "raw_length", "voice_config_changed", "tts_remote_unconfigured",
-                         *[f"tts_remote_{c}" for c in tts_remote.CODES]})
+                         "tts_wav_missing", "raw_length", "chain_speed", "voice_config_changed",
+                         "tts_remote_unconfigured", *[f"tts_remote_{c}" for c in tts_remote.CODES]})
 
 
 def failure_code(e: BaseException) -> str:
@@ -326,6 +326,22 @@ def chain_speed(chain: str) -> float:
     return speed
 
 
+def raw_to_final(timed, speed: float):
+    """Whisper's word times on a raw take, moved onto the final take a chain made from it: every numeric start and end
+    divided by the chain's speed (a 0.5 chain doubles them, a 0.93 chain stretches them by about 7.5%). Anything that
+    is not a list of word records is returned as it is, for align_words to judge; a value that is not a number is
+    left alone."""
+    if not isinstance(timed, list):
+        return timed
+    out = []
+    for t in timed:
+        if isinstance(t, dict):
+            t = {k: (v / speed if k in ("start", "end") and isinstance(v, (int, float)) and not isinstance(v, bool)
+                     else v) for k, v in t.items()}
+        out.append(t)
+    return out
+
+
 def align_lines(lines: list[dict], voice_dir: Path, chains: dict | None = None, *, python=None,
                 model: str | None = None) -> list[tuple[str, float]]:
     """Word times for every line, written as <id>.words.json; returns (line id, coverage) in line order. `chains` maps
@@ -333,10 +349,12 @@ def align_lines(lines: list[dict], voice_dir: Path, chains: dict | None = None, 
     such a line is heard on its clean <id>.raw.wav while its length comes from the final <id>.wav. The two must agree,
     else VoiceError: the final take may be at most RAW_TOLERANCE_S shorter than the raw one's length at the chain's
     speed (raw / chain_speed) and at most the chain's echo tail (echo_tail_s) plus RAW_TOLERANCE_S longer; any other
-    change means the chain moved the words the captions are timed by. Every other line is heard on its own wav.
-    `python` and `model` are settings.toml `whisper.python` and `whisper.model`."""
+    change means the chain moved the words the captions are timed by. Whisper times such a line on the raw take, so its
+    word times are divided by the chain's speed (raw_to_final) before they are mapped onto the line: the captions follow
+    the final take. A chain whose speed is not a positive number is VoiceError("chain_speed"). Every other line is heard
+    on its own wav. `python` and `model` are settings.toml `whisper.python` and `whisper.model`."""
     voice_dir = Path(voice_dir)
-    jobs, durs = [], {}
+    jobs, durs, speeds = [], {}, {}
     for ln in lines:
         final = voice_dir / f"{ln['id']}.wav"
         seconds = wav_seconds(final)
@@ -345,7 +363,10 @@ def align_lines(lines: list[dict], voice_dir: Path, chains: dict | None = None, 
         chain = (chains or {}).get(ln["id"])
         if chain:
             heard = voice_dir / f"{ln['id']}.raw.wav"
-            skew = seconds - wav_seconds(heard) / chain_speed(chain)  # off from the length the chain should give
+            speeds[ln["id"]] = speed = chain_speed(chain)
+            if not (math.isfinite(speed) and speed > 0):
+                raise VoiceError("chain_speed")
+            skew = seconds - wav_seconds(heard) / speed  # off from the length the chain should give
             if not -RAW_TOLERANCE_S <= skew <= echo_tail_s(chain) + RAW_TOLERANCE_S:
                 raise VoiceError("raw_length")
         jobs.append({"audio": str(heard), "text": ln["text"], "out": str(voice_dir / f"{ln['id']}.heard.json")})
@@ -353,6 +374,8 @@ def align_lines(lines: list[dict], voice_dir: Path, chains: dict | None = None, 
     covs = []
     for ln in lines:
         timed = files.read_json(voice_dir / f"{ln['id']}.heard.json")
+        if ln["id"] in speeds:  # Whisper timed the raw take; the chain plays it at its speed, so a raw second is 1/speed
+            timed = raw_to_final(timed, speeds[ln["id"]])
         words, cov = align.align_words(ln["text"], timed, durs[ln["id"]])
         write_words(voice_dir, ln, durs[ln["id"]], cov, "whisper", words)
         covs.append((ln["id"], cov))
@@ -360,19 +383,14 @@ def align_lines(lines: list[dict], voice_dir: Path, chains: dict | None = None, 
 
 
 def clear_outputs(work: Path) -> None:
-    """Remove the stage's outputs (voice/ and hostlint.json); the render stage calls this when a new ledger replaces
-    the old (render.clear_downstream)."""
+    """Remove the stage's outputs (voice/ and hostlint.json); collect does the same through daily.downstream when a
+    new ledger replaces the old."""
     _clear_stale(work)
 
 
 def _clear_stale(work: Path) -> None:
     """Remove the stage's outputs from an earlier run. A link is unlinked, never followed."""
-    for name in ("voice", "hostlint.json"):
-        p = Path(work) / name
-        if p.is_symlink() or not p.is_dir():
-            p.unlink(missing_ok=True)
-        else:
-            shutil.rmtree(p)
+    downstream.clear_voice_outputs(work)
 
 
 def _summary(head: str, lint: dict) -> str:

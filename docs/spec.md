@@ -34,8 +34,11 @@ in the logs, never cast.
 2. **Voices:** the host is your own cloned voice, from a reference recording you supply and consent to. Each agent
    gets a distinct synthetic voice that reads only its own verbatim log lines. No agent voice imitates a person.
 3. **Disclosure:** public lanes in detail; headline lanes only as the label and reason you wrote; everything else out.
-   Transcript quotes and session titles may come from any lane you listed, never from one you excluded. Repo, host and
-   branch names, secrets and anything under the embargo stay out of every episode.
+   Transcript quotes and session titles may come from any lane you listed, never from one you excluded. Private
+   repository names are blocked everywhere in shipped text: every headline lane and hard exclude, and every unlisted
+   repo seen that day (except a repo whose whole name is an agent's name, such as `.claude`); a public lane's
+   repository name may appear. Agent branch names, secrets, private addresses, the names you list in `blocked_names`
+   (machines, clients, code names) and anything under the embargo stay out of every episode.
 4. **Approach:** a deterministic pipeline with one bounded writer call. Rejected: an agent session each morning (it
    would hold untrusted input, private access and publishing at once, and cost and vary from day to day) and a pure
    template with no model (repetitive, the pattern platforms treat as inauthentic content).
@@ -104,7 +107,7 @@ Given a day, the pipeline produces a rendered episode on disk from that day's lo
 
 ### S2. The gate fails closed
 
-- A credential, a non-public repo or host name, an embargoed term or a blocked name anywhere in shipped text fails.
+- A credential, a private repository name, an embargoed term or a blocked name anywhere in shipped text fails.
 - A confessional that differs from its source line by any word, or whose source does not resolve, fails.
 - A script outside the word budget, with code, or with a number not in the ledger fails.
 - Every failure names its check and evidence, and no episode is made that day.

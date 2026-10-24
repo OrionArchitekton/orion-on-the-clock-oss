@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from daily import collect, files, render, textcheck
+from daily import collect, downstream, files, textcheck
 from daily.ledger import LedgerError, writer_view
 from daily.settings import Adapter
 from daily.sources import adapters as adapter_sources
@@ -542,9 +542,9 @@ def test_search_rows_dropped_for_a_bad_merge_time_reach_the_diagnostics(env, mon
 
 # ---- a new ledger clears what the media stages made from the old one ----
 
-def test_a_collect_asks_the_render_stage_to_clear_downstream(env, monkeypatch):
+def test_a_collect_clears_downstream_through_the_media_free_module(env, monkeypatch):
     seen = []
-    monkeypatch.setattr(render, "clear_downstream", lambda work, dry=False: seen.append((work, dry)))
+    monkeypatch.setattr(downstream, "clear_downstream", lambda work, dry=False: seen.append((work, dry)))
     res, work = env.collect()
     res2, work2 = env.collect(dry=True)
     assert res.ok and res2.ok and seen == [(work.absolute(), False), (work2.absolute(), True)]

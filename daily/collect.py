@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-from daily import files, gate, textcheck
+from daily import downstream, files, gate, textcheck
 from daily.ledger import RawSources, build_ledger, exclude_fragments
 from daily.sources import adapters as adapter_sources
 from daily.sources import claude, codex, github
@@ -128,8 +128,7 @@ def run_stage(ctx) -> StageResult:
     led, records = build_ledger(ctx.day, raw, ctx.cfg, files.now_iso(), str(source), text_ok=text_ok(checks))
     for name in STALE_AFTER_COLLECT:
         (work / name).unlink(missing_ok=True)
-    from daily import render  # lazy: render pulls in the whole media chain, which collect never needs
-    render.clear_downstream(work, dry=ctx.dry)  # the old ledger's media leave the top level (a dry run: only the dry media)
+    downstream.clear_downstream(work, dry=ctx.dry)  # the old ledger's media leave the top level (dry: only the dry media)
     # ASCII escapes: a lone surrogate in a body survives the round trip, and the gate re-reads the same text
     files.write_text(source, "".join(json.dumps(r, separators=(",", ":")) + "\n" for r in records))
     files.write_json(work / "ledger.json", led)

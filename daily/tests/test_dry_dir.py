@@ -183,13 +183,40 @@ def test_from_voice_on_a_gated_real_day_seeds_by_copy(world):
     assert snapshot(real) == before
 
 
-def test_from_render_seeds_the_voice_folder_too(world):
+def test_from_render_seeds_only_the_text_and_voices_dry_before_the_render(world):
+    """A dry build takes only dry words, so the real voice/ is never copied: the rehearsal voices silence in its own
+    folder first, then renders."""
     real = build_real_day(world)
     before = snapshot(real)
     assert go("--from-stage", "render", "--until", "render") == 0
-    assert (world.dry_dir / "voice" / "lines.json").read_bytes() == (real / "voice" / "lines.json").read_bytes()
-    assert world.calls == [("render", world.dry_dir)]
+    assert world.calls == [("voice", world.dry_dir), ("render", world.dry_dir)]
+    st = dry_status(world)
+    assert [st[n]["reason"] for n in ("collect", "write", "gate")] == ["seeded"] * 3
+    assert (st["voice"]["state"], st["render"]["state"]) == ("dry", "dry")
+    assert json.loads((world.dry_dir / "voice" / "lines.json").read_text()) == []   # the dry voicing, not the real one
     assert snapshot(real) == before
+
+
+def _real_words_in(work):
+    """A voicing with Whisper words (what a copy of a real voice/ would hold), which a dry build refuses."""
+    text = "one two"
+    files.write_json(work / "voice" / "lines.json", [{"id": "cold_open", "text": text}])
+    files.write_json(work / "voice" / "cold_open.words.json", {
+        "id": "cold_open", "text": text, "dur": 1.0, "coverage": 1.0, "source": "whisper",
+        "words": [{"word": "one", "start": 0.0, "end": 0.5}, {"word": "two", "start": 0.5, "end": 1.0}]})
+
+
+def test_a_rehearsal_from_render_reuses_a_dry_voicing_and_never_real_words(world):
+    build_real_day(world)
+    assert go("--from-stage", "render", "--until", "render") == 0       # seeds the text, voices dry, renders
+    world.calls.clear()
+    assert go("--from-stage", "render", "--until", "render") == 0
+    assert world.calls == [("render", world.dry_dir)]                    # the dry voicing is reused
+    assert dry_status(world)["voice"]["reason"] == "reused"
+    _real_words_in(world.dry_dir)
+    world.calls.clear()
+    assert go("--from-stage", "render", "--until", "render") == 0
+    assert world.calls == [("voice", world.dry_dir), ("render", world.dry_dir)]   # real words are voiced over
 
 
 def test_seeding_is_skipped_when_the_dry_directory_already_holds_the_gated_outputs(world):

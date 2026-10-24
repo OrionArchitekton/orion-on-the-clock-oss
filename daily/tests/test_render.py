@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from daily import align, compose, files, gate, paths, render, sheet, voiceconf
+from daily import align, compose, downstream, files, gate, paths, render, sheet, voiceconf
 from daily.settings import load_settings
 from daily.stage import Ctx
 from media_helpers import CASES, HAS_FFMPEG, VOICES, dry_work, make_kit, needs_ffmpeg, use_config
@@ -1255,7 +1255,7 @@ def test_a_cleanup_failure_is_stale_cleanup(gated, tmp_path, monkeypatch):
     def boom(path):
         raise PermissionError("/home/x/secret")
 
-    monkeypatch.setattr(render.shutil, "rmtree", boom)
+    monkeypatch.setattr(downstream.shutil, "rmtree", boom)
     r = render.run_stage(ctx(w))
     assert (r.ok, r.reason) == (False, "stale_cleanup") and calls == []
 
@@ -1311,7 +1311,7 @@ def test_the_second_contact_sheet_of_an_earlier_long_render_is_archived_with_the
     write_passing_verdict(tmp_path, sfx)
     other = "contact-sheet.jpg" if sfx else "contact-sheet-dry-2.jpg"  # the other mode's files are not touched
     (tmp_path / other).write_bytes(b"keep")
-    render._clear_stale(tmp_path, sfx)
+    downstream.clear_stale(tmp_path, sfx)
     assert sorted(p.name for p in tmp_path.iterdir()) == sorted([other, "previous"])
     (kept,) = (tmp_path / "previous").iterdir()
     assert sorted(p.name for p in kept.iterdir()) == [f"contact-sheet{sfx}-2.jpg", f"contact-sheet{sfx}-3.jpg",
@@ -1556,7 +1556,7 @@ def test_prune_counts_only_archives_with_an_episode_and_ignores_strays(gated, tm
 
 def test_a_same_microsecond_archive_name_never_merges_into_an_archive(gated, tmp_path, monkeypatch):
     w, _ = setup(gated, tmp_path, monkeypatch)
-    monkeypatch.setattr(render, "_utc_stamp", lambda: "20261018T010101000001Z")
+    monkeypatch.setattr(downstream, "_utc_stamp", lambda: "20261018T010101000001Z")
     fail_hf(monkeypatch)
     for i in range(2):
         old_render(w, tag=str(i).encode())
@@ -1652,7 +1652,7 @@ def test_clear_downstream_archives_a_good_render_and_removes_the_voice_outputs(g
     old_render(w)
     old_render(w, tag=b"dry", sfx="-dry")
     (w / "episode-rejected.mp4").write_bytes(b"inspect me")
-    render.clear_downstream(w)
+    downstream.clear_downstream(w)
     assert not (w / "voice").exists() and not (w / "hostlint.json").exists()
     assert not list(w.glob("episode*")) and not list(w.glob("render*.json")) and not (w / "build").exists()
     assert sorted((p / ("episode-dry.mp4" if p.name.endswith("-dry") else "episode.mp4")).read_bytes()
@@ -1663,7 +1663,7 @@ def test_a_dry_clear_downstream_touches_only_the_dry_media(gated, tmp_path, monk
     w, _ = setup(gated, tmp_path, monkeypatch)
     old_render(w)
     old_render(w, tag=b"dry", sfx="-dry")
-    render.clear_downstream(w, dry=True)
+    downstream.clear_downstream(w, dry=True)
     assert (w / "voice" / "lines.json").exists() and (w / "episode.mp4").read_bytes() == b"episode old"
     assert (w / "render.json").exists() and not (w / "episode-dry.mp4").exists()
     (kept,) = archives(w)
@@ -1673,7 +1673,7 @@ def test_a_dry_clear_downstream_touches_only_the_dry_media(gated, tmp_path, monk
 def test_clear_downstream_drops_an_unverified_episode_entirely(gated, tmp_path, monkeypatch):
     w, _ = setup(gated, tmp_path, monkeypatch)
     old_render(w, verdict=False)
-    render.clear_downstream(w)
+    downstream.clear_downstream(w)
     assert not list(w.glob("episode*")) and not (w / "previous").exists()
 
 

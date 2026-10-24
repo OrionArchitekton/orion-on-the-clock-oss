@@ -36,8 +36,9 @@ rerun can never skip a stage whose inputs or files an earlier rerun has replaced
 
 A `--dry` run works in its own directory, `<state>/<day>-dry/` (paths.work_dir(day, dry=True)), with its own
 status.json, run.lock, receipts and archives; it never creates, changes or deletes anything under `<state>/<day>/`.
-`--dry --from-stage <voice or later>` on a dry directory that lacks the gated text first seeds it by COPY from the real
-day (see _seed_dry); without a passing real text verdict it starts at collect in the dry directory.
+`--dry --from-stage <voice or later>` on a dry directory that lacks the gated text first seeds the text by COPY from the
+real day (see _seed_dry; the real voice/ is never copied, so a rehearsal from render voices silence first); without a
+passing real text verdict it starts at collect in the dry directory.
 
 The terminal stays quiet: only a usage error, a settings error or a failed lock prints (to stderr), and the notify
 stage's default sink prints the run's one item (as a JSON line, to stdout) when no notify command is set.
@@ -281,18 +282,33 @@ def _copy_tree(src: Path, dst: Path) -> None:
             _copy_file(entry, dst / entry.name)
 
 
-def _seed_dry(day: dt.date, dry_work: Path, status: dict, from_stage: str | None) -> None:
-    """Prepare a media rehearsal (`--dry --from-stage voice` or later) so it never redoes earlier work.
+def _dry_voice_ready(dry_work: Path) -> bool:
+    """True when the dry folder holds a dry voicing (voice/lines.json and every line's words marked dry, the only
+    words a dry build takes: compose.voiced_lines, lazily, as every stage module is). Anything else is not reused."""
+    if not (dry_work / "voice" / "lines.json").is_file():
+        return False
+    from daily import compose
+    try:
+        compose.voiced_lines(dry_work, dry=True)
+    except (OSError, ValueError, LookupError, TypeError):
+        return False
+    return True
 
-    If the dry directory already holds a text verdict, script and ledger that pass as one read, the stages before
+
+def _seed_dry(day: dt.date, dry_work: Path, status: dict, from_stage: str | None) -> None:
+    """Prepare a media rehearsal (`--dry --from-stage voice` or later) so it never redoes the writer.
+
+    If the dry folder already holds a text verdict, script and ledger that pass as one read, the stages before
     `from_stage` count as done in the dry status (a dry run records them as `dry`, which would rerun the writer), and so
-    does voice when it was voiced there. Otherwise it is seeded by copy from the real day: only a real day whose text
-    verdict passes as one read and is not itself a dry verdict is used. The script and ledger are written from the very
-    bytes that judgement returned and the verdict from its parse; sources/, the writer record files and (for a start
-    after voice) voice/ are copied as content, merged into the dry folder, never through a symlink. A copy that fails
-    part way marks nothing done: the run starts at collect and replaces it. Without a passing real verdict nothing is
-    seeded and the run starts at collect in the dry directory (the writer is never called for the real directory). The
-    real directory is only read; the stages after still re-verify the bytes (gate.read_verified), as on any run."""
+    does voice when the folder holds a dry voicing (_dry_voice_ready). Otherwise the text is seeded by copy from the
+    real day: only a real day whose text verdict passes as one read and is not itself a dry verdict is used. The script
+    and ledger are written from the very bytes that judgement returned and the verdict from its parse; sources/ and
+    the writer record files are copied as content, merged into the dry folder, never through a symlink. The real
+    voice/ is never copied: a dry build takes only dry words, so a rehearsal from render or later voices silence in its
+    own folder first (voice is left undone and runs dry), and the real takes stay where they are. A copy that fails part
+    way marks nothing done: the run starts at collect and replaces it. Without a passing real verdict nothing is seeded
+    and the run starts at collect in the dry directory (the writer is never called for the real directory). The real
+    directory is only read; the stages after still re-verify the bytes (gate.read_verified), as on any run."""
     if not from_stage or NAMES.index(from_stage) <= NAMES.index("gate"):
         return
     from daily import gate  # lazy, like every stage module
@@ -302,8 +318,10 @@ def _seed_dry(day: dt.date, dry_work: Path, status: dict, from_stage: str | None
     if mine[0] is not None:  # already seeded or built here: reuse it
         for name in ("collect", "write", "gate"):
             status["stages"][name] = {"state": "done", "reason": "reused", "at": now_iso()}
-        if after_voice and _state(status, "voice") in ("dry", "done") and (dry_work / "voice" / "lines.json").is_file():
+        if after_voice and _state(status, "voice") in ("dry", "done") and _dry_voice_ready(dry_work):
             status["stages"]["voice"] = {"state": "done", "reason": "reused", "at": now_iso()}
+        else:
+            status["stages"].pop("voice", None)  # no dry voicing here (or real words): voice runs dry before render
         write_json(dry_work / "status.json", status)
         return
     real = paths.work_dir(day)
@@ -321,13 +339,11 @@ def _seed_dry(day: dt.date, dry_work: Path, status: dict, from_stage: str | None
                 _copy_file(real / name, dry_work / name)
         if (real / "sources").is_dir():
             _copy_tree(real / "sources", dry_work / "sources")
-        if after_voice and (real / "voice" / "lines.json").is_file():
-            _copy_tree(real / "voice", dry_work / "voice")
-            seeded.append("voice")
     except OSError:
         return  # a half copy is never marked done: the run starts at collect and replaces it
     for name in seeded:
         status["stages"][name] = {"state": "done", "reason": "seeded", "at": now_iso()}
+    status["stages"].pop("voice", None)  # whatever voiced here before belonged to other text: voice runs dry again
     write_json(dry_work / "status.json", status)
 
 
