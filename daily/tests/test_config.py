@@ -369,3 +369,55 @@ def test_an_accented_embargo_term_hits_every_spelling(cfg_dir, text):
     cfg = load_config(cfg_dir)
     assert cfg.embargo_hit(text)
     assert not cfg.embargo_hit("we met Jose Ramos today")  # positive control
+
+
+# ---- a key the loader does not consume stops the run (a misspelled protection must never load as no protection) ----
+
+def _write(cfg_dir, name, obj):
+    (cfg_dir / name).write_text(json.dumps(obj))
+
+
+def _lanes(**extra):
+    base = {"lanes": {"demo-tool": {"disclosure": "public", "label": "the demo tool", "why": "so demos run"}},
+            "hard_exclude": [], "blocked_names": []}
+    return {**base, **extra}
+
+
+@pytest.mark.parametrize("name,obj,code", [
+    ("lanes.json", _lanes(hard_excludes=["diary-app"]), "unknown_key:lanes.json:hard_excludes"),
+    ("lanes.json", _lanes(blocked_name=["Zephyr"]), "unknown_key:lanes.json:blocked_name"),
+    ("lanes.json", {**_lanes(), "lanes": {"demo-tool": {"disclosure": "public", "label": "x", "why": "y",
+                                                        "hard_exclude": True}}}, "unknown_key:lanes.json:lane.hard_exclude"),
+    ("lanes.json", {**_lanes(), "lanes": {"demo-tool": {"disclosure": "public", "label": "x", "why": "y",
+                                                        "Label": "z"}}}, "unknown_key:lanes.json:lane.Label"),
+    ("embargo.json", {"active": False, "terms": [], "actve": True}, "unknown_key:embargo.json:actve"),
+    ("embargo.json", {"active": False, "terms": [], "term": ["pine fair"]}, "unknown_key:embargo.json:term"),
+])
+def test_an_unknown_key_stops_the_load_and_names_the_key_not_a_value(cfg_dir, name, obj, code):
+    _write(cfg_dir, name, obj)
+    with pytest.raises(ConfigError) as e:
+        load_config(cfg_dir)
+    assert str(e.value) == code
+    assert "diary-app" not in str(e.value) and "pine fair" not in str(e.value) and "demo-tool" not in str(e.value)
+
+
+def test_a_misspelled_hard_exclude_next_to_an_empty_valid_one_is_refused(cfg_dir):
+    _write(cfg_dir, "lanes.json", _lanes(hard_exclude=[], hard_excludes=["diary-app"]))
+    with pytest.raises(ConfigError, match="^unknown_key:lanes.json:hard_excludes$"):
+        load_config(cfg_dir)
+
+
+def test_note_keys_starting_with_an_underscore_stay_allowed_at_every_level(cfg_dir):
+    lanes = _lanes(_comment=["a note"])
+    lanes["lanes"]["demo-tool"]["_why_public"] = "a note on the lane"
+    _write(cfg_dir, "lanes.json", lanes)
+    _write(cfg_dir, "embargo.json", {"active": False, "terms": [], "_note": "test"})
+    loaded = load_config(cfg_dir)
+    assert set(loaded.lanes) == {"demo-tool"} and loaded.hard_exclude == () and loaded.embargo_active is False
+
+
+def test_the_shipped_examples_carry_no_key_the_loader_would_refuse():
+    for name in ("lanes.json", "embargo.json"):
+        data = json.loads((paths.REPO / "config.example" / name).read_text())
+        assert all(k.startswith("_") or k in {"lanes", "hard_exclude", "blocked_names", "active", "terms"} for k in data)
+    load_config(paths.REPO / "config.example")   # and they load

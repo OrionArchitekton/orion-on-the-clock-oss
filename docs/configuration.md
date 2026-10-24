@@ -104,10 +104,18 @@ Which repos may appear, and how. See the comments in `config.example/lanes.json`
 
 A repo that is not listed never appears in any text; it still counts toward the day's PR total.
 
+Any other key, at the top level or inside a lane entry, stops the run: a misspelled `hard_excludes` next to an empty
+`hard_exclude` must never load as no exclusion. Keys starting with an underscore are notes and are allowed anywhere.
+`status.json` records `config:unknown_key`; the error itself names the key and its level, never a value
+(`unknown_key:lanes.json:hard_excludes`, `unknown_key:lanes.json:lane.Label`). To see it:
+`python3 -c "from daily import config, paths; config.load_config(paths.config_dir())"` from the repository root.
+
 ## embargo.json
 
 `{"active": true | false, "terms": [...]}`. While active, a term blocks any text that holds it, from a word start,
-ignoring case and separators. An active embargo needs at least one term.
+ignoring case and separators. An active embargo needs at least one term. Any other key stops the run
+(`unknown_key:embargo.json:<key>`), so a misspelled `actve` never leaves the embargo off; keys starting with an
+underscore are notes.
 
 ## publish.json
 

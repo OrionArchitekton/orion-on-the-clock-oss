@@ -1,7 +1,10 @@
 """Private configuration: which lanes may appear and how, what never appears, and the embargo.
 
 The files live outside the repo, in the private config folder. Anything missing or malformed raises ConfigError, so the
-collect stage fails closed instead of running with a partial allowlist.
+collect stage fails closed instead of running with a partial allowlist. So does a key the loader does not consume, at
+the top level of either file and in each lane entry (`unknown_key:lanes.json:hard_excludes`,
+`unknown_key:lanes.json:lane.Label`, `unknown_key:embargo.json:actve`): a misspelled protection never loads as none.
+Keys starting with an underscore are notes, allowed at every level.
 """
 from __future__ import annotations
 
@@ -13,6 +16,11 @@ from pathlib import Path
 from daily import textcheck
 
 DISCLOSURES = ("public", "headline")
+# The keys the loader consumes, per level. Any other key stops the load (unknown_key:<file>:<key>), so a misspelled
+# protection (`hard_excludes`, `actve`) can never load as no protection. Keys starting with an underscore are notes.
+LANES_KEYS = frozenset({"lanes", "hard_exclude", "blocked_names"})
+LANE_KEYS = frozenset({"disclosure", "label", "why"})
+EMBARGO_KEYS = frozenset({"active", "terms"})
 MIN_EXCLUDE_LEN = 3  # a shorter hard_exclude entry would exclude (or block) nearly everything it is substring-matched on
 
 
@@ -120,6 +128,15 @@ def _read(dir_: Path, name: str) -> dict:
     return data
 
 
+def _known_keys(obj: dict, allowed: frozenset, where: str) -> None:
+    """ConfigError unknown_key:<where><key> for the first key (in sorted order) that is neither consumed nor a note
+    (a key starting with an underscore). `where` is "lanes.json:", "lanes.json:lane." or "embargo.json:": the code
+    names the key and its level, never a value or a lane's name."""
+    extra = sorted(k for k in obj if k not in allowed and not k.startswith("_"))
+    if extra:
+        raise ConfigError(f"unknown_key:{where}{extra[0]}")
+
+
 def _is_str_list(v) -> bool:
     return isinstance(v, list) and all(isinstance(x, str) for x in v)
 
@@ -131,6 +148,8 @@ def _non_empty_str(v) -> bool:
 def load_config(dir_: Path) -> Config:
     raw = _read(dir_, "lanes.json")
     emb = _read(dir_, "embargo.json")
+    _known_keys(raw, LANES_KEYS, "lanes.json:")
+    _known_keys(emb, EMBARGO_KEYS, "embargo.json:")
     if not isinstance(raw.get("lanes"), dict):
         raise ConfigError("bad_shape:lanes")
     lanes: dict = {}
@@ -142,6 +161,7 @@ def load_config(dir_: Path) -> Config:
             raise ConfigError(f"duplicate_lane:{name}")
         if not isinstance(spec, dict):
             raise ConfigError(f"bad_shape:lane:{name}")
+        _known_keys(spec, LANE_KEYS, "lanes.json:lane.")
         if spec.get("disclosure") not in DISCLOSURES:
             raise ConfigError(f"bad_shape:disclosure:{name}")
         for field in ("label", "why"):

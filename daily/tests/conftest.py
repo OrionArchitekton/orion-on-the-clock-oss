@@ -20,7 +20,7 @@ LANES = {
     "hard_exclude": ["diary-app", "secret-garden"],
     "blocked_names": ["Zephyr"],
 }
-EMBARGO = {"active": True, "terms": ["pine fair"], "note": "test"}
+EMBARGO = {"active": True, "terms": ["pine fair"], "_note": "test"}
 TZ = "America/Los_Angeles"  # the synthetic data below is laid out in a US zone with daylight saving
 SETTINGS = f'''timezone = "{TZ}"
 

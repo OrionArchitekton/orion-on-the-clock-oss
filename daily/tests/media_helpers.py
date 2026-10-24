@@ -50,7 +50,7 @@ LANES = {
     "hard_exclude": ["old-diary", "scratch-dir"],
     "blocked_names": ["Quokka"],
 }
-EMBARGO = {"active": True, "terms": ["moon launch"], "note": "test"}
+EMBARGO = {"active": True, "terms": ["moon launch"], "_note": "test"}
 
 HOST_REF_BYTES = b"a synthetic reference recording"
 P = {"exaggeration": 0.5, "cfg_weight": 0.5, "temperature": 0.8}
