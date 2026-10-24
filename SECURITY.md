@@ -41,6 +41,21 @@ It is not a sandbox, and it trusts the machine and the account it runs on.
   characters (no file names, no graph syntax) and reaches ffmpeg as one argument.
 - **Markup in on-screen text.** Every value reaches the composition as JSON with `<`, `>` and `&` escaped and is drawn
   with text-only DOM calls; a long dash anywhere on screen stops the build.
+- **A second copy of a day on your channel.** The day is claimed in an uploads ledger outside every day's folder and in
+  the day's receipt before the bytes go up; a rerun resumes the same draft, a lost receipt or a second folder for the
+  day is a stop for you, and a save is recorded before it is pressed, so a run cut off mid-save never presses again.
+- **An unreviewed or swapped episode reaching the channel.** Publish reads the text verdict and the render verdict once
+  each and binds them (the render must be of the accepted script and ledger), then uploads a staging copy of the exact
+  bytes the render verdict judged; the driver re-hashes the file before and after handing it to Studio.
+- **A public release nobody chose.** Uploads are private unless `publish.json` says exactly `"visibility": "public"`;
+  the driver takes the visibility only from its command line, can save only private or public (no unlisted or
+  scheduled path exists), proves the choice and the exact button label in the script that presses, and needs a fresh
+  Public read and an oEmbed embed of the video before it calls a public release done. A day keeps the visibility it
+  was uploaded with.
+- **Acting in the wrong tab, account or browser.** The driver connects only to a loopback DevTools endpoint, proves it
+  drives a headed Chrome that is not marked automated, opens and marks a tab of its own and re-checks that mark in the
+  same batch as every action, presses only pinned targets, stops when Studio is signed out or on another channel, and
+  never closes your browser. Diagnostics never echo the endpoint.
 - **Someone else's GPU job.** The remote TTS preflight is read only: any GPU process not on your allow list means the
   remote is busy and the run voices locally. Nothing remote is paused, unloaded or stopped, and a remote run ends under
   its own timeout even if ssh drops.
@@ -61,6 +76,13 @@ It is not a sandbox, and it trusts the machine and the account it runs on.
 - **What a viewer infers.** The show describes real work; a careful viewer learns what you build and when.
 - **The remote TTS host.** It receives the day's lines (gated text) and your voices.json, runs the runner as your ssh
   user, and must hold your voice reference. Trust it as you trust this machine.
+- **The browser's DevTools port.** Anything running as your user (or, if you forward the port, anyone who can reach
+  it) can drive the signed-in Chrome through it, with no password: every account signed in there. Give the pipeline a
+  Chrome profile of its own with only the channel's account, and keep the port on the loopback (docs/runbook.md).
+- **YouTube and Google.** The driver uses the Studio web page as you would, in your session. A page change can stop it
+  (it stops rather than guess); detection of automation and the platform's terms are yours to keep within. A public
+  release is public at once: watch private days before you turn public mode on.
+- **Your notify command.** It receives every item (titles, links, the work folder path) and runs as your code.
 - **HyperFrames and its browser.** The render runs a headless Chromium on a page built from gated data. Without
   `render.sandbox` it has your network and your user's rights; the sandbox example in docs/how-it-works.md removes the
   network and contains its processes.

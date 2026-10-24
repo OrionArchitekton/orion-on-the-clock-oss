@@ -2,9 +2,9 @@
 
 Instructions for AI agents working on this repository.
 
-- Run `python3 -m pytest -q` from the repository root before every commit. The suite is fakes only: no test may call
-  the network, ssh, the real `claude` or `gh` CLI, Chatterbox, Whisper, HyperFrames or a GPU, or read a real agent log,
-  config folder, state folder, media kit or voice recording (the test conftest points `ORION_CLOCK_CONFIG` and
+- Run `python3 -m pytest -q` and `ruff check .` from the repository root before every commit. The suite is fakes only:
+  no test may call the network, ssh, the real `claude`, `gh` or `agent-browser` CLI, a browser, YouTube, Chatterbox,
+  Whisper, HyperFrames or a GPU, or read a real agent log, config folder, state folder, media kit or voice recording (the test conftest points `ORION_CLOCK_CONFIG` and
   `ORION_CLOCK_STATE` at empty temp folders for every test). Media tests use ffmpeg to make tiny tones and videos and
   skip without it, and skip without numpy or Pillow. The few tests that exercise the real tools run only when an
   environment variable names them (`ORION_CLOCK_TEST_TTS_PYTHON`, `ORION_CLOCK_TEST_WHISPER_PYTHON`,
@@ -22,8 +22,16 @@ Instructions for AI agents working on this repository.
   closed without them (`settings_missing`).
 - Settings are strict: add a new key to `daily/settings.py` with validation, to `config.example/settings.toml` with a
   comment, to `docs/configuration.md`, and to `daily/tests/test_settings.py`.
-- The release stages (`publish`, `notify`) are placeholders that fail closed until they are ported; keep them
-  registered in `daily/paths.py` `STAGE_ORDER`.
+- The Studio driver (`release/studio.py`) acts only in the tab it opened and marked, through fixed-purpose helpers with
+  one hard-coded target each. `daily/tests/test_studio.py` parses its source: a new click target, a new visibility
+  word, a generic click, `type`/`fill`/`press`, `eval` or `getattr`, or a second definition of a pinned name fails it.
+  Extending the allowlist there is a reviewed decision, never a drive-by. The visibility reaches the setter and the
+  save only as the threaded command-line argument; never read it from a file or the environment in the driver.
+- The driver never closes the browser (it stops its own agent-browser session by its daemon) and connects only to a
+  loopback DevTools endpoint. Keep both.
+- Never weaken one-video-per-day: the day is claimed in the uploads ledger and the receipt before the bytes go up, the
+  save attempt is recorded before the press, and a terminal receipt is never touched again.
+- Public mode is read only by `daily/publish.py` from `publish.json`, and only `"visibility": "public"` turns it on.
 - Voice and render read the script and ledger only through `gate.read_verified` (one read, the parsed bytes are the
   hashed bytes) and voices.json once, hashed. Never add a second read of a gated file, a fallback voice, or a reference
   recording for an agent voice. On-screen text comes only from gate-scanned fields, the verified quote, voices.json

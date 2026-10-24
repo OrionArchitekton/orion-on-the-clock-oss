@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased (0.1.0)
+## 0.1.0
 
-First public MIT release: the text half of the pipeline, ported as a sanitized copy of a working private one.
+First public MIT release: the whole pipeline, from agent logs to a verified upload, ported as a sanitized copy of a
+working private one.
 
 - Collect: Claude Code and Codex session log readers (counts, session notes, quote candidates, exclusion taint on any
   day), merged PRs through the GitHub CLI, counts-only agent adapters and a tracker adapter loaded from the operator's
@@ -17,7 +18,8 @@ First public MIT release: the text half of the pipeline, ported as a sanitized c
 - Orchestration: stage order, resumable `status.json`, a kernel lock, quiet days, dry runs in their own `<day>-dry`
   folder (seeded by copy for a later-stage rehearsal), sanitized reasons and documented exit codes.
 - Config layer: `ORION_CLOCK_CONFIG` and `ORION_CLOCK_STATE`, a strict `settings.toml` (time zone, show, sources,
-  checks, writer, and the channel, browser, notify and TTS keys later stages read), commented examples.
+  checks, writer, the voice and render toolchain, the channel, the browser and the notify command), commented examples;
+  a missing setting is named as settings.toml spells it (`missing:channel.id`).
 - Voice: the host lines in a cloned voice from the operator's own reference recording (hash checked before every
   run), the confessional quote in its agent's built-in voice made distinct by an allowlisted ffmpeg chain (an agent
   never gets a reference recording, and the plan proves by content that no agent line used the host's conditioning),
@@ -32,7 +34,25 @@ First public MIT release: the text half of the pipeline, ported as a sanitized c
   renders kept under rejected names and earlier passing renders archived (three kept).
 - Config: `voices.json`, and settings for the TTS and Whisper environments, the remote TTS host, the media kit, the
   HyperFrames command and sandbox, and the channel handle.
-- The release stages (publish, notify) are registered placeholders that fail closed.
+- Publish: both verdicts read once and bound to each other (the render verdict's script and ledger hashes must be the
+  accepted text's), a staging copy of the exact rendered bytes, the disclosure line checked and appended exactly once,
+  one video per day through the receipt, the driver's exit codes mapped to short reasons and needs-you codes, and
+  public mode only from `publish.json` saying `"visibility": "public"` (anything else is private, never an error).
+- Studio driver (`release/studio.py`, `release/pinned.py`): private or public only, from its command line; a new tab of
+  its own, marked at creation and re-checked in the same batch as every action; pinned click targets with a static
+  test over its source; exact done labels per visibility (Save, Publish) proved in the script that presses; the save
+  attempt recorded before the press; the "Video published" dialog closed by its own button; verification by a fresh
+  read and oEmbed (refused for private, an embed of this video within a bound for public); receipts and an uploads
+  ledger outside every day's folder; a channel switch in, an optional switch back to `channel.home_id`, one re-open on
+  an empty channel read and a private stop screenshot; a signed-out browser is a stop for you. The browser is a
+  loopback DevTools endpoint from settings (or a leased one, `browser.lease` and `browser.release`), proved to be a
+  headed Chrome that is not marked automated, and never closed: the driver stops its own agent-browser session.
+- Notify: one item per (day, outcome) with revisions, superseding and closed-outside, through `notify.command` (a JSON
+  message on stdin) or the default sink (the state folder and stdout); run.py exits 5 for a failure it reported.
+- Timer: `daily/unit_failed.py` (the item for a run that died before it could report, keyed by the day the run chose,
+  under the lock notify uses), and example systemd units: a 05:30 local timer with catch-up, the service, the failure
+  unit and an entry script that builds PATH and refuses to start without node.
+- Docs: the runbook, the safety design, the spec and lessons learned.
 
-Not bundled: Claude Code, the GitHub CLI, git, ffmpeg, Node, HyperFrames, Chatterbox, faster-whisper, media, fonts,
-music or a voice reference. Bring your own (docs/media-kit.md).
+Not bundled: Claude Code, the GitHub CLI, git, ffmpeg, Node, HyperFrames, Chatterbox, faster-whisper, Chrome,
+agent-browser, media, fonts, music or a voice reference. Bring your own (docs/media-kit.md, docs/runbook.md).

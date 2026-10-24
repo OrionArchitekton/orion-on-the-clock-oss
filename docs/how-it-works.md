@@ -5,14 +5,13 @@ in `<state>/<day>/status.json`, and resumes where a run stopped:
 
 ```
 collect -> write -> gate -> voice -> render -> publish -> notify
-ledger     script   verdict  voice/   episode.mp4
-                             words    render.json
+ledger     script   verdict  voice/   episode.mp4 upload.json  notify.json
+                             words    render.json (Studio)     (your command)
 ```
 
 Every stage reads the files the stage before it wrote, and every stage after the gate reads the script only through
 the gate's verdict. A stage fails closed: it passes only on positive evidence, and its reason in `status.json` is a
-short code, never text from a log, a script or an exception. The release half (publish, notify) arrives in a later
-release; until then those two stages are placeholders that fail closed.
+short code, never text from a log, a script or an exception.
 
 ## collect, write, gate
 
@@ -173,10 +172,104 @@ sandbox = ["~/bin/render-sandbox.sh", "{timeout}"]
 `hf_check`, `hf_render_failed`, `hf_render`, `hf_timeout`, `hf:<class>`, `render_probe:<code or class>` (`probe_timeout`,
 `probe_failed`, `probe_unreadable`), `render_checks:<check names>` (read `render.json` for the evidence).
 
+## publish
+
+The episode goes to your channel through YouTube Studio in your own signed-in Chrome, PRIVATE unless public mode is
+on. The browser work runs in a child process, `release/studio.py`, so it can be timed out and still give the browser
+back.
+
+**Reads:** `verdict.json`, `script.json` and `ledger.json` in one read; `render.json` and `episode.mp4` in one read
+(the dry names in a dry run); settings.toml (`channel.*`, `browser.*`, `show.disclosure`); `publish.json` from your
+config folder, once.
+
+**Writes** (in the day's folder):
+
+| File | What it is |
+| --- | --- |
+| `upload-episode.mp4` | the staging copy that is uploaded: the exact bytes `render.json` judged |
+| `upload-item.json` | what the driver uploads: id, day, channel, file, sha256, title, description, synthetic, visibility (with `dry: true` in a dry run) |
+| `upload.json` | the driver's receipt: day, render hash, video id, visibility and stage (`upload_started`, `uploaded`, `details`, `save_clicked`, `saved`, `private_verified` or `public_verified`), the verify read, `switched_back` |
+| `publish.log` | the driver's output, and short notes: `release_problem:<code>`, `switched_back:false`, `closed_tab:false` |
+
+and, outside every day's folder, `<state>/uploads/ledger.jsonl`, one row when an upload starts and one when it is
+verified.
+
+**Steps:**
+
+1. The text verdict must accept the script and the ledger (and say `dry: false` on a real run); the script must be a
+   non-quiet script for this day with a title.
+2. The disclosure line must be one plain line (no long dash, no angle bracket, no control character).
+3. The render verdict must accept `episode.mp4`, bound to the same ledger, and say stage `render`, this day, `dry`
+   exactly as this run, and the sha256 of the very script and ledger bytes step 1 judged.
+4. Read public mode: exactly `{"visibility": "public"}` (other keys are notes) means public; anything else is private.
+5. Under the upload lock: a receipt for another day or another render stops for you; a verified receipt for this
+   render is done (`already_private:<id>`, `already_public:<id>`), whatever the mode now says. A dry run writes the
+   item and stops here.
+6. A real run needs `channel.id`, writes the staging copy and checks its hash, writes the item, and starts
+   `release/studio.py upload <work> --visibility private|public` (90 minute timeout; the browser is given back after
+   a timeout or a signal).
+7. A receipt that proves `private_verified` or `public_verified` for this render is the result, whatever the child's
+   exit code. Otherwise the exit code becomes the reason: 1 `studio_abort`, 2 `studio_usage`, 3 `browser_busy`,
+   4 `needs_you:<code>` (the code from the child's last line `NEEDS_YOU <code>`).
+
+**The driver** (`release/studio.py`) attaches agent-browser to `browser.endpoint` (loopback only) or to a leased
+browser, proves it drives a headed Chrome that does not report `navigator.webdriver`, opens a new tab of its own and
+marks it, and acts only in that tab. On the channel's Studio it uploads the file (the day is claimed in the ledger and
+the receipt before the bytes go up), sets title and description and reads them back, sets "not made for kids" and
+"altered content: yes" and reads both back, waits for the upload and checks, then proves and saves the visibility in
+one page script: the chosen choice alone checked, no schedule picker, the button reading exactly `Save` (private) or
+`Publish` (public), and only then the press. The attempt is recorded (`save_clicked`) before the press is sent, so a
+rerun from there only verifies. Verify reloads the video's Studio page and needs title, description, both flags and the
+visibility label to read back, plus oEmbed: a private video must be refused, a public one must answer with an oEmbed
+body for this video within ten tries thirty seconds apart. Then it switches the tab to `channel.home_id` (when set),
+closes its own tab and stops its agent-browser session. docs/safety.md explains each guard; docs/runbook.md has the
+stops and what to do about them.
+
+**Reason codes:** `settings_missing`, `missing:channel.id`, `text_not_accepted:<code | dry>`, `script_unreadable`,
+`script_quiet`, `script_day_mismatch`, `no_title`, `bad_disclosure`, `render_not_accepted:<code>`, `staging_mismatch`,
+`upload_item_unwritable`, `dry_run`, `already_private:<id>`, `already_public:<id>`, `uploaded_private:<id>`,
+`uploaded_public:<id>`, `browser_busy`, `studio_abort`, `studio_usage`, `studio_exit_<n>`, `studio_signal`,
+`studio_timeout`, `studio_not_runnable`, `studio_receipt_missing`, and `needs_you` or `needs_you:<code>`
+(docs/runbook.md lists the codes and what each asks of you).
+
+## notify
+
+One item per day and outcome, after every run that reaches it: ready (an approval: the private episode waits for
+you), published (an FYI: public mode released it), needs_you (an approval), quiet, failed-<stage> and config_error
+(FYIs, with the exact rerun command where one helps).
+
+**Reads:** `status.json`, `upload.json` (the video id; a link is always built from it, never copied), `render.json`
+(duration and loudness), the gated script (the title, cleaned), the ledger's coverage, settings.toml `notify.command`.
+
+**Writes:** `notify.json` in the day's folder (each key it sent, its item id, and what it superseded), and, with no
+command set, `<state>/notify/<item id>.json` plus one JSON line on stdout.
+
+**Steps:**
+
+1. A dry run sends nothing. Without settings the stage stops (`settings_missing`).
+2. The outcome is the first stage in order that failed, was skipped or went quiet; a done publish is ready, or
+   published when the receipt proves a `public_verified` upload.
+3. The item is built from fixed phrases, the day, stage names, short reason codes, numbers, display names, links built
+   from the video id and a cleaned title: never log, script or exception text.
+4. An outcome already sent is not sent again; returning to an outcome whose item was superseded sends a revision
+   (`:r2`, `:r3`). The new item is sent first, then every earlier open item of the day is expired; a failed expire is
+   retried on the next run.
+5. `notify.json` is written only after the item was accepted, under `notify.lock` (shared with the timer's failure
+   handler), so a refusal fails the stage and the next run sends it again.
+
+run.py exits 5 when a stage failed and notify reported it (`notified`, `already notified` or `closed outside`), so the
+timer's failure unit fires only for a run that died before it could report.
+
+**Reason codes:** `notified: <outcome>`, `already notified: <outcome>`, `closed outside: <outcome>`,
+`dry run: nothing sent`, `nothing_to_report`, `settings_missing`, `upload_receipt_invalid`, `notify_exit_<n>`,
+`notify_timeout`, `notify_not_runnable`, `notify_bad_answer`, `notify_receipt_unwritable`, `notify_busy`.
+
 ## Rehearsing the media half
 
 `python3 -m daily.run --day yesterday --until render --dry` runs every stage up to render in `<state>/<day>-dry/`:
 the writer is called, the voice is silence, and the render is real (HyperFrames, the mix and the five checks) with the
 duration window applied to the silent episode. `--dry --from-stage voice` copies a gated real day's text into the dry
 folder first, so you can rehearse the media for a day whose script already passed, without calling the writer again.
-Open `contact-sheet-dry.jpg` to see the layout, and `episode-dry.mp4` to hear the mix around the silence.
+Open `contact-sheet-dry.jpg` to see the layout, and `episode-dry.mp4` to hear the mix around the silence. Running on
+through publish (`--dry` with no `--until`) writes the dry `upload-item.json` the driver would get, and notify sends
+nothing: a rehearsal never starts a browser and never reports.

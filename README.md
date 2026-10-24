@@ -2,27 +2,32 @@
 
 An automated daily YouTube Short that recaps what your AI coding agents did yesterday: what shipped, one story told in
 plain words, one thing a viewer can steal for their own work, and one line an agent really wrote, read in its own
-voice. Every morning a timer runs the pipeline; nothing reaches the screen unless a fail-closed gate can prove it.
+voice. Every morning a timer runs the pipeline; nothing reaches the screen unless a fail-closed gate can prove it, and
+nothing reaches your channel as anything but a private upload unless you flip a switch.
 
 It started as "Dan's Agents on the Clock", a show recapping the work of one developer's Claude Code and Codex agents,
 and this repository is a sanitized copy of that working pipeline, published so you can learn from it and run your
 own.
 
-## Status
-
-Release 0.1.0 carries the text half and the media half: collect, write, gate, voice and render run end to end, and a
-dry run produces a gated script and a silent-voiced 9:16 rehearsal video for any day. The release half (publish,
-notify) arrives in a later release. Until then its two stages are registered placeholders that fail closed, so a run
-that reaches one stops there instead of skipping it.
-
 ## How it works
 
 ```
-agent logs + merged PRs
-        |
-     collect -> write -> gate -> voice -> render -> publish -> notify
-        |          |        |
-     ledger.json  script   verdict.json
+ agent logs ----+                        your config folder (never in the repo)
+ merged PRs ----+                        settings.toml  lanes.json  embargo.json
+ your adapters -+                        voices.json    publish.json
+                |                                 |
+                v                                 v
+   +---------+   +-------+   +------+   +-------+   +--------+   +---------+   +--------+
+   | collect |-->| write |-->| gate |-->| voice |-->| render |-->| publish |-->| notify |
+   +---------+   +-------+   +------+   +-------+   +--------+   +---------+   +--------+
+        |            |           |          |            |             |            |
+   ledger.json  script.json verdict.json  voice/     episode.mp4   upload.json   notify.json
+   (the only    (one        (14 checks, (Chatterbox render.json   (Studio in    (your command,
+    thing the    headless    bound to    + Whisper   (bound to     your Chrome,  or the state
+    writer       claude -p,  script and  word times)  the verdict) private by    folder)
+    sees)        no tools)   ledger)                               default)
+                                                                         |
+                                                    <state>/uploads/ledger.jsonl: one video per day, ever
 ```
 
 1. **collect** reads one calendar day of Claude Code and Codex session logs, the PRs merged on GitHub, and any sources
@@ -35,17 +40,23 @@ agent logs + merged PRs
    agent's built-in voice say its quote, then times every word with faster-whisper.
 5. **render** lays out the timeline, fills a HyperFrames composition (scoreboard, story cards, the confessional card,
    karaoke captions), mixes the sound to -14 LUFS, renders the 9:16 video, and writes a verdict of five checks.
-6. **publish**, **notify**: a private upload and a report of every run's outcome (a later release).
+6. **publish** re-checks both verdicts against each other, stages the exact rendered bytes, and has the Studio driver
+   (`release/studio.py`) upload them through YouTube Studio in your own signed-in Chrome: private by default, public
+   only when `publish.json` says so, read back and verified either way.
+7. **notify** sends one item per day and outcome (ready for review, published, quiet, stopped, needs you) to a command
+   you choose, or writes it to the state folder and prints it.
 
 `python3 -m daily.run` runs the stages in order, records each in `status.json`, resumes where a run stopped, and holds a
 kernel lock so two runs never overlap. `docs/how-it-works.md` walks through the stages and every file they write;
-`docs/configuration.md` describes every file they read.
+`docs/configuration.md` describes every file they read; `docs/runbook.md` covers the timer, the browser and what to do
+when a run stops.
 
 ## What you need
 
-- Linux or macOS with Python 3.11 or newer (the text half is standard library only)
-- [Claude Code](https://claude.com/claude-code) signed in: the writer is one headless call on your own
-  login, capped by `writer.budget_usd`
+- Linux with Python 3.11 or newer (the text half is standard library only and also runs on macOS; the example timer
+  is a systemd user unit)
+- [Claude Code](https://claude.com/claude-code) signed in: the writer is one headless call on your own login, capped
+  by `writer.budget_usd`
 - `git`, and the [GitHub CLI](https://cli.github.com/) signed in if you count merged PRs (`sources.github`)
 - Agent logs to recap: Claude Code and Codex are built in, anything else plugs in (docs/sources.md)
 
@@ -62,7 +73,16 @@ For the media half (versions are the ones this was built and tested with):
 - Your media kit (fonts, music, sound cues, GSAP) and your voice reference recording: nothing is bundled.
   `docs/media-kit.md` lists every file, free-licensed sources and what each license asks.
 
-## Quickstart: a dry run
+For the release half:
+
+- Google Chrome (or Chromium) with a profile of its own, signed in to the Google account that holds your channel and
+  started with a DevTools port on the loopback (docs/runbook.md, "The browser")
+- [agent-browser](https://github.com/vercel-labs/agent-browser) 0.25 (`npm install -g agent-browser@0.25.4`,
+  Apache-2.0), which the Studio driver drives that Chrome with
+- A YouTube channel. Uploads go through the Studio web page, not the Data API (an unaudited API project can only
+  upload private videos)
+
+## Quickstart
 
 ```bash
 git clone <this repository> && cd orion-on-the-clock-oss
@@ -76,55 +96,94 @@ cp config.example/* ~/.config/orion-on-the-clock/
 python3 -m daily.run --day yesterday --until gate --dry
 ```
 
-Then the media half, still dry (silence stands in for the voice, so no TTS or Whisper is needed): set `render.kit`
-in settings.toml, copy `config.example/voices.json` too, and
-
-```bash
-python3 -m daily.run --day yesterday --from-stage voice --until render --dry
-```
-
-Open `contact-sheet-dry.jpg` and `episode-dry.mp4` in the dry folder.
-
 A dry run works in its own folder, `~/.local/state/orion-on-the-clock/<day>-dry/`, and never touches the real day's
 folder. Read `ledger.json` (what the writer was allowed to see), `script.json` (what it wrote) and `verdict.json` (each
-gate check with its evidence). Exit code 0 means the script passed the gate, or that the day was quiet;
-`status.json` says which.
+gate check with its evidence).
+
+Then the media half, still dry (silence stands in for the voice, so no TTS or Whisper is needed): set `render.kit`
+in settings.toml, fill in `voices.json`, and run the rest of the rehearsal:
+
+```bash
+python3 -m daily.run --day yesterday --from-stage voice --dry
+```
+
+It renders `episode-dry.mp4` and `contact-sheet-dry.jpg`, writes the `upload-item.json` the Studio driver would get,
+and reports nothing. When the rehearsal looks right, set `channel.id`, start the browser, and go live, private:
+
+```bash
+python3 release/studio.py preflight          # proves the browser reaches your channel's Studio
+python3 -m daily.run --day yesterday         # a real run: a private upload and one item
+```
+
+Install the timer from `systemd/` (docs/runbook.md, "Install the timer") once a few attended days look right.
+
+## Configuration
+
+Everything you configure lives in `~/.config/orion-on-the-clock/` (`ORION_CLOCK_CONFIG`); everything the pipeline
+writes lives in `~/.local/state/orion-on-the-clock/` (`ORION_CLOCK_STATE`). Neither is ever in the repository.
+
+| File | What it holds |
+| --- | --- |
+| `settings.toml` | time zone, show names and disclosure line, sources, the writer, the voice and render toolchain, the channel, the browser endpoint (or a pool lease), the notify command |
+| `lanes.json` | which repos may appear and how (public or headline), hard excludes, blocked names |
+| `embargo.json` | terms that must not appear until you lift the embargo |
+| `voices.json` | the host's reference recording and every agent's voice, color and glyph |
+| `publish.json` | private (the default) or public uploads |
+
+Loading is strict: an unknown key, a wrong type or a missing required key stops the run with a short code that names
+the key. Nothing falls back to a default that publishes. `config.example/` has every file with comments, and
+docs/configuration.md every key.
+
+## What it costs to run
+
+- **Money:** your Claude Code plan covers the writer. Each call is capped by `writer.budget_usd` (default 2 USD, at most
+  two attempts a day) and `writer-run.json` records what each attempt reported; one pilot day of the original pipeline
+  (two writer attempts) came to about 0.21 USD of notional usage. Everything else is open source and runs on your
+  machine. YouTube uploads are free.
+- **Time:** collect, write and gate take a minute or two. Voicing an episode takes a few minutes with a GPU and about
+  an hour on a CPU (Chatterbox there needs roughly 55 seconds of computing per second of speech); Whisper and the
+  render add a few minutes more. The upload and its checks take a few minutes, and a public release up to five more
+  while YouTube's embed lookup catches up.
+- **Attention:** in private mode, one look and one tap a day in YouTube Studio, plus whatever a stop asks of you
+  (docs/runbook.md lists every needs-you code and what it means).
 
 ## Safety design, in brief
 
-- **The ledger is the only thing the writer sees.** Repos are allowlisted by lane: a public lane may be the story, a
-  headline lane shows only as a label and a count, anything unlisted never appears in text, and a hard-excluded repo
-  is left out even of the merged PR and closed task counts. A session that ever touched an excluded folder gives no
-  quotes and no notes.
-- **Untrusted text stays data.** Agent logs and PR bodies are fenced inside the prompt so no ledger text can close the
-  fence or pass as an instruction, and the writer has no tools.
-- **The gate fails closed.** Fourteen checks (shape, story and quote in the ledger, the quote re-read word for word
-  from its source line, redactor, AI-tell phrases and long dashes, secret shapes, blocked names, embargo, word budget,
-  no code, no invented numbers) must each pass on positive evidence. A check that crashes fails. Every text check reads the
-  raw text and a normalized form, so invisible characters, look-alike letters and look-alike dashes cannot hide a hit.
-- **Receipts bind everything.** The verdict carries the hashes of the script and the ledger it judged; a consumer that
-  finds either changed refuses it. Voice and render read the script only through it, so text edited after the gate is
-  never voiced or rendered, and the render verdict binds the episode to that text and to the voices it was made with.
-- **Voices are consented and checked.** The host's cloned voice comes only from the reference recording you name, and
-  its hash is checked before every voicing. An agent never speaks in a person's voice: agent voices are the TTS
-  model's built-in voice plus an allowlisted ffmpeg chain, and the runner proves no agent line used the host's
-  conditioning.
-- **Private by default.** Uploads are private unless your config says otherwise (later releases), and a dry run can
-  never create, change or delete a file of the real day.
-- **Strict config.** A typo in a settings key stops the run; nothing falls back to a default that publishes.
+- **The ledger is the only thing the writer sees.** Repos are allowlisted by lane, hard excludes are left out even of
+  the counts, and a session that touched an excluded folder gives no quotes or notes.
+- **Untrusted text stays data.** Agent logs and PR bodies are fenced as data, and the writer has no tools.
+- **The gate fails closed**, on raw and normalized text, and its verdict binds the script and ledger: text edited
+  after the gate is never voiced, rendered or uploaded.
+- **One video per day.** A receipt resumes a half-finished upload and an uploads ledger outside every day's folder
+  survives a lost receipt; the day is claimed in both before the bytes go up, and a save is recorded before it is
+  pressed, so a rerun never presses twice.
+- **One marked tab, pinned targets, a loopback browser.** The Studio driver acts only in a tab it opened and marked,
+  presses only fixed targets (a static test pins them), connects only to a DevTools endpoint on the loopback, proves the
+  browser is a headed Chrome first, and never closes your browser.
+- **Private by default; public is a switch you flip.** Only `"visibility": "public"` in publish.json turns public mode
+  on, the driver takes the visibility only from its command line, can save only private or public (never unlisted or
+  scheduled), and proves a public release live before it says so.
+- **Voices are consented and checked**: the host's clone only from the recording you name, checked by hash; an agent
+  never speaks in a person's voice.
 
-`SECURITY.md` lists what is and is not defended.
+docs/safety.md explains each mechanism and why it is there; SECURITY.md lists what is and is not defended;
+docs/lessons.md is what building it taught.
 
 ## Repository layout
 
 - `daily/`: the pipeline package, one module per stage; `daily/sources/` the log readers; `daily/checks/` the built-in
-  redactor, slop gate and secret scanner; `daily/engine/` the HyperFrames composition template; `daily/tests/` the
-  suite
+  redactor, slop gate and secret scanner; `daily/engine/` the HyperFrames composition template; `daily/unit_failed.py`
+  the timer's failure handler; `daily/tests/` the suite
+- `release/`: the YouTube Studio driver (`studio.py`) and its tab-pinned browser primitives (`pinned.py`)
+- `systemd/`: an example timer, service, failure unit and entry script
 - `config.example/`: commented settings, voices, lanes, embargo and publish files to copy into your config folder
-- `docs/`: how it works stage by stage, configuration, the media kit and voice, sources and the adapter contracts
-  (with worked examples), the writer's CLI notes
+- `docs/`: how it works, configuration, the runbook, the safety design, the spec, lessons learned, the media kit and
+  voice, sources and the adapter contracts (with worked examples), the writer's CLI notes
 
 ## Credits
 
-Built by Dan Mercede's agents (Claude Code and Codex), from the pipeline behind "Dan's Agents on the Clock". MIT
-licensed; see `LICENSE`.
+Built by Dan Mercede's agents (Claude Code and Codex), from the pipeline behind "Dan's Agents on the Clock". The Studio
+driver drives Chrome through [agent-browser](https://github.com/vercel-labs/agent-browser); the episodes are rendered
+with [HyperFrames](https://github.com/heygen-com/hyperframes), voiced with
+[Chatterbox](https://github.com/resemble-ai/chatterbox) and timed with
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper). MIT licensed; see `LICENSE`.

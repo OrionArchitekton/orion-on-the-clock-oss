@@ -38,9 +38,12 @@ settings file prints one line to stderr and exits 1 before any stage runs.
 | `checks.dir` | no | A folder with your own `redactor.py`, `slop_gate.py` and `secret_scan.py` in place of `daily/checks/`. |
 | `writer.model`, `writer.budget_usd` | no | The headless Claude Code call (default `sonnet`, 2 USD cap per call). |
 | `writer.voice_style`, `writer.voice_samples`, `writer.voice_tags`, `writer.avoid_words` | no | How the host talks; see below. |
-| `channel.id`, `channel.name`, `channel.home_id` | for publishing | The YouTube channel to upload to, and an optional channel to switch back to. |
-| `browser.endpoint` | no | The Chrome DevTools endpoint the publish stage drives (default `http://127.0.0.1:9222`). |
-| `notify.command` | no | A command that receives each run's outcome; empty writes it to the state folder and prints it. |
+| `channel.id` | for a real publish | The YouTube channel id (`UC` and 22 characters) every upload goes to and the driver proves before it acts. |
+| `channel.name` | no | How messages name that channel (default: the id). |
+| `channel.home_id` | no | A channel to put the browser back on after an upload (same Google account, several channels); leave out to skip. |
+| `browser.endpoint` | no | The Chrome DevTools endpoint the Studio driver connects to, loopback only (default `http://127.0.0.1:9222`). |
+| `browser.lease`, `browser.release` | no (both or neither) | Commands that lease the browser from a pool and give it back (docs/runbook.md). |
+| `notify.command` | no | A command that receives each run's outcome as JSON on stdin (docs/runbook.md); empty writes it to the state folder and prints it. |
 | `tts.python` | for a real run voiced here | The Python of the environment Chatterbox is installed in. |
 | `tts.lock` | no | The lock file that keeps one Chatterbox at a time on this machine (default `~/.local/state/orion-on-the-clock/tts.lock`). |
 | `tts.target` | no | `auto` (default: the remote host when set, falling back here once), `local` or `remote`. |
@@ -53,10 +56,8 @@ settings file prints one line to stderr and exits 1 before any stage runs.
 | `render.hyperframes` | no | The HyperFrames command as a list (default `["hyperframes"]`). |
 | `render.sandbox` | no | A command put in front of HyperFrames; `{timeout}` becomes the step's timeout in seconds (docs/how-it-works.md). |
 
-The `channel`, `browser` and `notify` keys are read by stages that are not ported yet; they are validated now so a typo
-fails today rather than on the first upload. A stage that needs a key you left out stops with `missing:<name>` instead
-of choosing one; the name is the setting's internal name (`missing:tts_python` means `tts.python`, `missing:render_kit`
-means `render.kit`).
+A stage that needs a key you left out stops with `missing:<key>` instead of choosing one, naming the key as
+settings.toml spells it (`missing:tts.python`, `missing:render.kit`, `missing:channel.id`).
 
 ### The host's voice
 
@@ -110,8 +111,12 @@ ignoring case and separators. An active embargo needs at least one term.
 
 ## publish.json
 
-`{"visibility": "private"}`. Read by the publish stage (not ported yet). Private is the default and the only safe
-place to start: you watch each upload before you make it public yourself.
+`{"visibility": "private"}`, your off switch for public mode. Read once per run by the publish stage, never by the
+Studio driver (the stage passes the mode on the command line). Only a JSON object whose `visibility` is exactly
+`"public"` turns public mode on (keys starting with an underscore are notes); a missing, unreadable or malformed file,
+`"Public"`, `"unlisted"` or anything else means private, never an error. Private is the default and the place to start:
+you watch each upload in Studio before you make it public yourself. A day already uploaded keeps its visibility when
+you flip the switch, and a half-finished upload keeps the one it began with (docs/runbook.md, "Public mode").
 
 ## The state folder
 
@@ -121,5 +126,12 @@ leaves. Inside a day's folder: `status.json` (one entry per stage), `run.lock`, 
 `script.json` and `verdict.json` (the gate's checks, each with short evidence), then the media: `hostlint.json`,
 `voice/` (the takes, word times, the voice manifest and the TTS and Whisper logs), `build/` (the composition, the mix
 and the HyperFrames logs), `episode.mp4`, `render.json` and `contact-sheet.jpg`, the rejected copies of a failed
-render, and `previous/` (earlier passing renders). `last-run.json` at the top records the day the last real run chose.
-docs/how-it-works.md describes each file.
+render, and `previous/` (earlier passing renders); then the release: `upload-episode.mp4` and `upload-item.json` (what
+the driver uploads), `upload.json` (its receipt), `upload.lock`, `publish.log`, and `notify.json` with `notify.lock`.
+
+At the top of the state folder: `last-run.json` (the day the last real run chose), `uploads/ledger.jsonl` (every
+upload ever started and verified; never edit or delete it: it is what stops a second video for a day whose receipt is
+lost), `notify/` (the default notify sink's items), `_studio-stops/` (private screenshots of a stop at the channel
+check, newest 20 kept) and `studio.lock` (one driver command at a time). The driver's agent-browser sessions live in
+`$XDG_RUNTIME_DIR/orion-on-the-clock-browser/` (or `browser/` here without a runtime folder). docs/how-it-works.md
+describes each file.
