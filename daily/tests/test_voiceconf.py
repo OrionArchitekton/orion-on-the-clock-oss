@@ -411,3 +411,11 @@ def test_the_message_may_say_more_but_the_code_stays_short(tmp_path):
 def test_this_file_has_no_long_dash():
     from pathlib import Path
     assert not [c for c in Path(__file__).read_text(encoding="utf-8") if c in LONG_DASHES]
+
+
+def test_load_voices_raw_returns_the_very_bytes_it_hashed(tmp_path):
+    p = tmp_path / "voices.json"
+    p.write_bytes(json.dumps(VOICES).encode("utf-8"))
+    voices, sha, raw = voiceconf.load_voices_raw(p)
+    assert raw == p.read_bytes() and sha == hashlib.sha256(raw).hexdigest()
+    assert (voices, sha) == voiceconf.load_voices_hashed(p)

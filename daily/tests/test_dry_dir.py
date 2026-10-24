@@ -63,7 +63,8 @@ def world(monkeypatch, tmp_path, cfg_dir, cfg):
     monkeypatch.setattr(collect, "gather", lambda day, cfg, settings: RawSources(prs=(MERGED,), arcs=(), claude=None,
                                                                                  codex=None, coverage={},
                                                                                  diagnostics={}))
-    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), lambda t: []))
+    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), lambda t: [],
+                                                                                    lambda t: []))
 
     def fake_write(ctx):  # the writer: records the call; writes a script the gate can pass into ctx.work
         calls.append(("write", ctx.work))

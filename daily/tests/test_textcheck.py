@@ -12,9 +12,9 @@ from daily.textcheck import TextChecks, TextcheckUnavailable
 CLEAN = "The new browser pool shipped today and every single test passed."
 
 
-def checks(redactor_hits=(), slop_hits=(), verdict=None):
+def checks(redactor_hits=(), slop_hits=(), verdict=None, secret_hits=()):
     return TextChecks(lambda t: (verdict or ("ABSTAIN" if redactor_hits else "PUBLISH"), list(redactor_hits)),
-                      lambda t: list(slop_hits))
+                      lambda t: list(slop_hits), lambda t: list(secret_hits))
 
 
 def test_clean_text_passes():  # positive control
@@ -37,11 +37,21 @@ def test_a_slop_hit_fails():
     assert not checks(slop_hits=[("ai_slop_lexeme", "delve")]).ok(CLEAN)
 
 
+def test_a_secret_finding_fails():
+    assert not checks(secret_hits=["credential (token field, value withheld)"]).ok(CLEAN)
+
+
+@pytest.mark.parametrize("answer", [None, "clean", 0, {"x": 1}])
+def test_a_secret_scanner_answer_that_is_not_a_list_fails(answer):
+    assert not TextChecks(lambda t: ("PUBLISH", []), lambda t: [], lambda t: answer).ok(CLEAN)
+
+
 def test_the_checks_see_the_exact_text():
     seen = []
     TextChecks(lambda t: (seen.append(("r", t)), ("PUBLISH", []))[1],
-               lambda t: (seen.append(("s", t)), [])[1]).ok(CLEAN)
-    assert seen == [("r", CLEAN), ("s", CLEAN)]
+               lambda t: (seen.append(("s", t)), [])[1],
+               lambda t: (seen.append(("x", t)), [])[1]).ok(CLEAN)
+    assert seen == [("r", CLEAN), ("s", CLEAN), ("x", CLEAN)]
 
 
 SHADOWED = ("redactor", "slop_gate")
@@ -64,6 +74,8 @@ def fake_modules(folder, verdict="PUBLISH", slop="['x'] if 'delve' in t else []"
     folder.mkdir(exist_ok=True)
     (folder / "redactor.py").write_text(f"def decision(t):\n    return ({verdict!r}, [])\n")
     (folder / "slop_gate.py").write_text(f"def scan(t):\n    return {slop}\n")
+    (folder / "secret_scan.py").write_text("def scan_output(t, public_hosts=()):\n"
+                                           "    return ['credential'] if 'hunter2' in t else []\n")
 
 
 def test_a_missing_checks_folder_is_unavailable(clean_sys_path, monkeypatch, tmp_path):
@@ -73,8 +85,9 @@ def test_a_missing_checks_folder_is_unavailable(clean_sys_path, monkeypatch, tmp
 
 
 @pytest.mark.parametrize("broken", [{"redactor.py": "def other(t):\n    return 1\n"},
-                                    {"slop_gate.py": "raise ImportError('half written')\n"}],
-                         ids=["no-decision", "raises-on-load"])
+                                    {"slop_gate.py": "raise ImportError('half written')\n"},
+                                    {"secret_scan.py": "def scan(t):\n    return []\n"}],
+                         ids=["no-decision", "raises-on-load", "no-scan-output"])
 def test_a_broken_module_is_unavailable(clean_sys_path, monkeypatch, tmp_path, broken):
     fake_modules(tmp_path / "bp")
     for name, text in broken.items():
@@ -88,7 +101,7 @@ def test_modules_from_the_checks_folder_load(clean_sys_path, monkeypatch, tmp_pa
     fake_modules(tmp_path / "bp")
     monkeypatch.setattr(paths, "CHECKS_DIR", tmp_path / "bp")
     got = textcheck.load()
-    assert got.ok(CLEAN) and not got.ok("We delve into it.")
+    assert got.ok(CLEAN) and not got.ok("We delve into it.") and not got.ok("The password was hunter2 all along.")
 
 
 def test_loading_leaves_sys_path_and_the_plain_module_names_alone(clean_sys_path, monkeypatch, tmp_path):
@@ -122,6 +135,7 @@ def test_a_module_linked_from_outside_the_folder_is_refused(clean_sys_path, monk
     (tmp_path / "bp").mkdir()
     (tmp_path / "bp" / "redactor.py").symlink_to(tmp_path / "outside" / "redactor.py")
     (tmp_path / "bp" / "slop_gate.py").write_text((tmp_path / "outside" / "slop_gate.py").read_text())
+    (tmp_path / "bp" / "secret_scan.py").write_text((tmp_path / "outside" / "secret_scan.py").read_text())
     monkeypatch.setattr(paths, "CHECKS_DIR", tmp_path / "bp")
     with pytest.raises(TextcheckUnavailable, match="^textcheck_unavailable$"):
         textcheck.load()
@@ -203,7 +217,7 @@ def test_normal_form(raw, normal):
 
 def test_ok_fails_a_hit_found_only_in_the_normal_form():
     flags = TextChecks(lambda t: ("ABSTAIN", [("host", "xx")]) if "Nimbus" in t else ("PUBLISH", []),
-                       lambda t: [("banned_dash", "U+2014")] if "\u2014" in t else [])
+                       lambda t: [("banned_dash", "U+2014")] if "\u2014" in t else [], lambda t: [])
     assert flags.ok(CLEAN)  # positive control
     assert not flags.ok("We thank Nim\u200bbus today.") and not flags.ok("A long day \u2012 done.")
 
@@ -255,3 +269,25 @@ def test_extra_patterns_never_soften_a_redactor_hit():
     both = textcheck.with_patterns(lambda t: ("ABSTAIN", [("secret", "gh**xx")]),
                                    (("operator_pattern", re.compile("box")),))
     assert both("a box") == ("ABSTAIN", [("secret", "gh**xx"), ("operator_pattern", "withheld")])
+
+
+# ---- the secret scanner runs before the writer too ----
+
+def test_the_loaded_checks_refuse_secret_shaped_text_on_both_forms():
+    from daily.textcheck import load
+    checks = load(None)
+    for text in ("Rotate the api_key = shortvalue now", "password: hunter2", "token=abc123",
+                 "pass\u200bword: hunter2", "see https://internal.example.net/x"):
+        assert not checks.ok(text), text
+    assert checks.ok("We shipped the demo export today.")   # positive control
+
+
+def test_without_the_secret_scanner_the_checks_are_unavailable(tmp_path):
+    import shutil
+    from daily import paths
+    from daily.textcheck import TextcheckUnavailable, load
+    from types import SimpleNamespace
+    for name in ("redactor.py", "slop_gate.py"):
+        shutil.copy(paths.CHECKS_DIR / name, tmp_path / name)
+    with pytest.raises(TextcheckUnavailable):
+        load(SimpleNamespace(checks_dir=tmp_path, redact_patterns=(), harness_prefixes=(), public_hosts=None))

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from daily import collect, downstream, files, textcheck
+from daily import collect, downstream, files, gate, textcheck, writer
 from daily.ledger import LedgerError, writer_view
 from daily.settings import Adapter
 from daily.sources import adapters as adapter_sources
@@ -32,6 +32,7 @@ FLAGGED = "The Zorblat helper restarted twice and then the queue drained today."
 HARNESSES = ("claude_code", "codex", "alpha_agent")
 FRAGS = ("diary-app", "secret-garden")  # exclude_fragments of the conftest config
 DIGEST = digest_fragments(FRAGS)
+REAL_TEXTCHECK_LOAD = textcheck.load  # the real redactor, slop gate and secret scanner
 REAL = {"merged_prs": github.merged_prs, "attribute": github.attribute, "scan_claude": claude.scan_claude,
         "scan_codex": codex.scan_codex, "load_tracker": tracker.load_tracker, "load_scan": adapter_sources.load_scan,
         "run_adapter": adapter_sources.run_adapter}
@@ -143,7 +144,7 @@ def env(monkeypatch, tmp_path, cfg_dir, cfg, settings):
                                notes=(note("codex", "bbbb0002"),), fragments_checked=2, fragments_digest=DIGEST),
         day, db, resolver, sessions, exclude_fragments=exclude_fragments))
     redactor = lambda t: ("ABSTAIN", [("name", "Zo**at")]) if "Zorblat" in t else ("PUBLISH", [])  # noqa: E731
-    monkeypatch.setattr(textcheck, "load", lambda settings=None: call("textcheck", TextChecks(redactor, lambda t: []),
+    monkeypatch.setattr(textcheck, "load", lambda settings=None: call("textcheck", TextChecks(redactor, lambda t: [], lambda t: []),
                                                                       settings))
     return e
 
@@ -397,18 +398,43 @@ def test_an_item_title_with_another_code_shape_is_still_dropped(env):
 def test_the_prefilter_reads_the_normal_form_too(env, monkeypatch):
     """A figure dash survives NFKC; only the normal form shows it as the long dash the slop gate blocks."""
     slop = lambda t: [("banned_dash", "U+2014")] if "\u2014" in t else []  # noqa: E731
-    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), slop))
+    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), slop, lambda t: []))
     env.prs = [titled(7, "Add the demo \u2012 fast"), titled(8, "Add the demo fast")]  # positive control: 8 stays
     data = env.ledger()
     assert [i["title"] for i in data["items"] if i["kind"] == "pr"] == ["Add the demo fast"]
     assert data["excluded"]["prefiltered"] == 1
 
 
+SECRET_TITLE = "Rotate the api_key = shortvalue in the importer"
+SECRET_LINE = "The importer now reads password: hunter2 from its env file."
+SECRET_QUOTE = "We set token=abc123 for the demo run today and it held fine."
+
+
+def test_secret_shaped_text_never_reaches_the_writer_prompt(env, monkeypatch):
+    """With the real checks: a PR title, a PR body line and a transcript quote that carry a credential-like value are
+    dropped at collection like any other refused text, so the writer (and the model provider) never sees them."""
+    monkeypatch.setattr(textcheck, "load", REAL_TEXTCHECK_LOAD)
+    env.prs = [titled(7, SECRET_TITLE), titled(8, "Add the demo export", f"Keeps every row in order.\n{SECRET_LINE}")]
+    env.claude_quotes = (cq(GOOD), cq(SECRET_QUOTE, line=5))
+    data = env.ledger()
+    prompt = writer.build_prompt(data, writer.show_from(env.settings))
+    for value in ("shortvalue", "hunter2", "abc123"):
+        assert value not in prompt and value not in json.dumps(data), value
+    assert GOOD in prompt and "Add the demo export" in prompt and "Keeps every row in order." in prompt   # control
+    assert data["excluded"]["prefiltered"] >= 3
+
+
+def test_the_gate_still_runs_its_own_secret_scanner(settings):
+    deps = gate.default_deps(settings)
+    assert deps.secrets_scan("We set token=abc123 for the demo run.")              # the gate's own check, unchanged
+    assert deps.secrets_scan("We shipped the demo export today.") == []
+
+
 def test_a_text_check_that_raises_fails_the_stage(env, monkeypatch):
     def broken(t):
         raise RuntimeError("redactor crashed")
 
-    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(broken, lambda t: []))
+    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(broken, lambda t: [], lambda t: []))
     with pytest.raises(RuntimeError, match="redactor crashed"):
         env.collect()
     assert not list(env.tmp.glob("work*/ledger.json"))

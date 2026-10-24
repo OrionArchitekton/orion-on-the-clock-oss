@@ -36,6 +36,7 @@ very bytes that are then parsed); `voices.json` from your config folder, once, h
 | File | What it is |
 | --- | --- |
 | `voice/lines.json` | every line in speaking order: id, scene, voice, text and Chatterbox settings |
+| `voice/voices.json` | the private copy (0600) of the voices.json bytes this stage read and hashed: what the runner is handed, so a later edit of your file cannot reach a run in progress |
 | `voice/voice-manifest.json` | what this run used: the sha256 of the voices.json bytes, the host reference digest, each line's voice, settings and ffmpeg chain, and where voicing ran |
 | `voice/<id>.wav` | the final take of each line (24 kHz mono) |
 | `voice/<id>.raw.wav` | the untouched take of a line that has an ffmpeg chain (every agent line) |
@@ -63,7 +64,9 @@ very bytes that are then parsed); `voices.json` from your config folder, once, h
    host's voice; it also proves by content that no agent's conditioning matches the host's. Its exit code is not the
    proof: `tts-results.json` must list exactly these line ids in order, carry the host reference digest, and every
    wav must exist and hold bytes.
-8. If voices.json changed while the runner ran, stop (`voice_config_changed`).
+8. If the copy the runner was handed no longer holds the bytes the stage hashed, stop (`voice_config_changed`). An edit
+   of your own voices.json after the stage read it does not reach this run; the render then refuses the day
+   (`voice_config_changed` there) until it is voiced again.
 9. Apply each line's ffmpeg chain (agent voices: a pitch step and a tempo step, perhaps an equalizer or a light echo),
    keeping the untouched take. The chain is checked against an allowlist of audio filters, so it cannot read or write
    a file.

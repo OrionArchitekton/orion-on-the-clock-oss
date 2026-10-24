@@ -49,6 +49,7 @@ TTS_RESULTS = "tts-results.json"
 TTS_TARGETS = ("remote", "local")  # the order "auto" tries them in
 # what the stage used: voices.json's hash, the host reference digest, each line's params and post chain
 MANIFEST = "voice-manifest.json"
+VOICES_COPY = "voices.json"  # in voice/: the private copy (0600) of the voices.json bytes the stage read, for the runner
 MANIFEST_SCHEMA = "daily.voice-manifest/1"
 SR = 24000
 DRY_WORD_S = 0.3  # a cloned voice speaks ~3.3 words/s, so a dry episode is about as long as a real one
@@ -148,6 +149,17 @@ def wav_seconds(path: Path) -> float:
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
                          check=True, capture_output=True, text=True, timeout=FFMPEG_TIMEOUT_S).stdout
     return float(out.strip())
+
+
+def write_private(path: Path, data: bytes) -> None:
+    """Write `data` to a new file at `path`, readable by this user only (0600), never through an existing file or a
+    link (the stage made the folder a moment ago), and on disk before it returns."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(path, 0o600)
 
 
 def write_words(voice_dir: Path, line: dict, dur: float, coverage: float, source: str, words: list[dict]) -> None:
@@ -419,7 +431,7 @@ def run_stage(ctx) -> StageResult:
     voice_config:<code> (voices.json missing or invalid; the code names the key), voice_missing:<agent ids> (an agent
     in the ledger has no voice), voice_lines:<class>, missing:<setting> (a real run needs tts_python and
     whisper_python), voice_ref:<code> (the host reference is missing or is not the recording its hash names),
-    voice_config_changed (voices.json changed while the runner ran), voice:<code or class>,
+    voice_config_changed (the copy of voices.json the runner was handed changed while it ran), voice:<code or class>,
     align_coverage:<id>=<coverage>,..."""
     work = Path(ctx.work)
     try:
@@ -441,8 +453,8 @@ def run_stage(ctx) -> StageResult:
         ledger = json.loads(ledger_bytes.decode("utf-8"))
         if isinstance(script, dict) and script.get("quiet"):
             return StageResult(ok=False, reason="quiet_script_at_voice")
-        try:
-            voices, voices_sha = voiceconf.load_voices_hashed(voices_path)
+        try:  # the one read of voices.json: these bytes build the lines, are hashed, and are what the runner gets
+            voices, voices_sha, voices_bytes = voiceconf.load_voices_raw(voices_path)
         except voiceconf.VoiceConfigError as e:
             return StageResult(ok=False, reason=f"voice_config:{e.code}")
         missing = unvoiced_agents(ledger, voices)
@@ -472,11 +484,13 @@ def run_stage(ctx) -> StageResult:
             code = ref if ref in voiceconf.REF_MESSAGES else "refused"  # a known code only: never a path
             return StageResult(ok=False, reason=f"voice_ref:{code}")
         write_manifest(voice_dir, lines, chains, voices_sha, ref)
-        results = run_tts(lines, voice_dir, voices_path, ref, settings=settings, voices_sha=voices_sha, day=ctx.day)
+        copy = voice_dir / VOICES_COPY
+        write_private(copy, voices_bytes)  # the exact bytes read and hashed above: the runner never opens the original
+        results = run_tts(lines, voice_dir, copy, ref, settings=settings, voices_sha=voices_sha, day=ctx.day)
         if isinstance(results, dict):  # the manifest says where voicing ran
             write_manifest(voice_dir, lines, chains, voices_sha, ref, results)
-        if files.sha256_bytes(voices_path.read_bytes()) != voices_sha:
-            return StageResult(ok=False, reason="voice_config_changed")  # the runner read a voices.json this stage did not
+        if files.sha256_bytes(copy.read_bytes()) != voices_sha:
+            return StageResult(ok=False, reason="voice_config_changed")  # the copy changed under the runner
         for ln in lines:
             if chains[ln["id"]]:
                 post_process(voice_dir / f"{ln['id']}.wav", chains[ln["id"]])

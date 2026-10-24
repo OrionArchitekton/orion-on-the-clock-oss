@@ -1,8 +1,10 @@
-"""The text gate's redactor and slop checks, for use before the gate: the collect stage keeps only text they pass, so
-the writer only chooses text the gate can ship. The gate loads them the same way.
+"""The text gate's redactor, slop and secret checks, for use before the gate: the collect stage keeps only text they
+all pass, so the writer (and the model provider behind it) only ever sees text the gate could ship: a credential-like
+value in a PR title, a PR body line or a quote is dropped at collection, never sent in the prompt. The gate loads the
+same modules the same way.
 
-The checks are two modules, `redactor.py` (`decision`) and `slop_gate.py` (`scan`), loaded lazily by file path from one
-folder: settings.toml `checks.dir` when the operator supplies their own, else the built-in `daily/checks/`. They load
+The checks are three modules, `redactor.py` (`decision`), `slop_gate.py` (`scan`) and `secret_scan.py` (`scan_output`,
+given settings.toml `checks.public_hosts`), loaded lazily by file path from one folder: settings.toml `checks.dir` when the operator supplies their own, else the built-in `daily/checks/`. They load
 under private module names, so sys.path and sys.modules end up as they were and no module of the same name elsewhere
 (a shadow on sys.path, an earlier import) can stand in. A file that is missing, linked from outside that folder, fails
 to load or lacks its function raises TextcheckUnavailable: the caller fails closed. The operator's own
@@ -21,6 +23,7 @@ from pathlib import Path
 from typing import Callable
 
 from daily import paths
+from daily.settings import DEFAULT_PUBLIC_HOSTS
 
 
 # Dropped from the normal form: combining marks (Mn, Me: accents, variation selectors, U+034F, U+0332) and format
@@ -54,19 +57,24 @@ def forms(text: str) -> tuple:
 
 
 class TextcheckUnavailable(Exception):
-    """The redactor or slop gate cannot be loaded from the checks folder."""
+    """The redactor, the slop gate or the secret scanner cannot be loaded from the checks folder."""
 
 
 @dataclass(frozen=True)
 class TextChecks:
     redactor_decision: Callable  # text -> ("PUBLISH", []) or ("ABSTAIN", hits)
     slop_scan: Callable  # text -> [] when clean, else hits
+    secrets_scan: Callable  # text -> [] when clean, else findings (the gate's secret scanner, with the public hosts)
 
     def ok(self, text: str) -> bool:
-        """True only for a PUBLISH verdict with no hits and no slop hit, on the raw text and on its normal form."""
+        """True only for a PUBLISH verdict with no hits, no slop hit and no secret finding, on the raw text and on its
+        normal form. A secret scanner that answers anything but a list or tuple is not a clean answer."""
         for form in forms(text):
             verdict, hits = self.redactor_decision(form)
             if verdict != "PUBLISH" or hits or self.slop_scan(form):
+                return False
+            found = self.secrets_scan(form)
+            if not isinstance(found, (list, tuple)) or found:
                 return False
         return True
 
@@ -118,7 +126,8 @@ def with_patterns(decision: Callable, patterns) -> Callable:
     return combined
 
 
-def load(settings=None) -> TextChecks:
+def load_pair(settings=None) -> tuple:
+    """(redactor decision with the operator's extra patterns, slop scan), or TextcheckUnavailable."""
     folder = checks_dir(settings)
     try:
         decision = load_module(folder / "redactor.py", "redactor").decision
@@ -127,7 +136,30 @@ def load(settings=None) -> TextChecks:
         raise TextcheckUnavailable("textcheck_unavailable") from e
     if not (callable(decision) and callable(scan)):
         raise TextcheckUnavailable("textcheck_unavailable")
-    return TextChecks(with_patterns(decision, extra_patterns(settings)), scan)
+    return with_patterns(decision, extra_patterns(settings)), scan
+
+
+def load_secrets(settings=None) -> Callable:
+    """The secret scanner (`secret_scan.scan_output`) bound to settings.toml `checks.public_hosts` (absent: the default
+    YouTube hosts; an empty list: no host at all), or TextcheckUnavailable."""
+    hosts = getattr(settings, "public_hosts", None)
+    hosts = DEFAULT_PUBLIC_HOSTS if hosts is None else tuple(hosts)
+    try:
+        scan = load_module(checks_dir(settings) / "secret_scan.py", "secret_scan").scan_output
+    except Exception as e:  # missing, linked from outside the folder, broken on load, no scan_output
+        raise TextcheckUnavailable("textcheck_unavailable") from e
+    if not callable(scan):
+        raise TextcheckUnavailable("textcheck_unavailable")
+
+    def secrets(text):
+        return scan(text, public_hosts=hosts)
+    return secrets
+
+
+def load(settings=None) -> TextChecks:
+    """All three checks, or TextcheckUnavailable when any one cannot be loaded (collect fails closed)."""
+    decision, scan = load_pair(settings)
+    return TextChecks(decision, scan, load_secrets(settings))
 
 
 BUILT_IN_PREFIXES = ("claude/", "codex/")  # branch names the built-in redactor already refuses

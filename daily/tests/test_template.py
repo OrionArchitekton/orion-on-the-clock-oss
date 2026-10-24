@@ -463,7 +463,7 @@ def test_build_never_opens_the_gated_files_or_voices(tmp_path, clone, monkeypatc
     (w / "script.json").write_text("not json")
     (w / "ledger.json").write_text("not json")
     parsed = voices()  # the caller's one parse, before the readers are taken away
-    for name in ("load_voices", "load_voices_hashed", "parse_voices_bytes"):
+    for name in ("load_voices", "load_voices_hashed", "load_voices_raw", "parse_voices_bytes"):
         monkeypatch.setattr(voiceconf, name, lambda *a, **k: pytest.fail("compose opened voices.json"))
     build(tmp_path, w, s, led, v=parsed)
 

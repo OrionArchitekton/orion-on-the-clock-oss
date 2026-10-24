@@ -156,11 +156,18 @@ def load_voices(path) -> dict:
 
 def load_voices_hashed(path) -> tuple[dict, str]:
     """(the voices, the sha256 of the very bytes they were parsed from): one read, so the hash names what was used."""
+    voices, sha, _raw = load_voices_raw(path)
+    return voices, sha
+
+
+def load_voices_raw(path) -> tuple[dict, str, bytes]:
+    """(the voices, the sha256 of the bytes, the bytes themselves): one read of the file, for a caller that hands the
+    very same bytes on (the voice stage writes them into the run's folder for the runner)."""
     try:
         raw = Path(path).read_bytes()
     except OSError:
         raise VoiceConfigError("voices_file_unreadable", "voices_file_unreadable") from None
-    return parse_voices_bytes(raw), hashlib.sha256(raw).hexdigest()
+    return parse_voices_bytes(raw), hashlib.sha256(raw).hexdigest(), raw
 
 
 def parse_voices_bytes(raw: bytes) -> dict:

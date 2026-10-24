@@ -10,6 +10,9 @@ It is not a sandbox, and it trusts the machine and the account it runs on.
   repos never appear in text, headline lanes appear only as an operator-written label and a count under an opaque id,
   and hard-excluded repos are left out even of the PR and task counts. A session that touched an excluded folder on
   any day, directly or through a helper session, gives no quotes or notes (it still counts as a session).
+- **Secrets reaching the model provider.** Every text bound for the writer (a PR title, a PR body line, a quote, a
+  session or teaser title) must pass the redactor, the slop gate and the secret scanner at collection, the same three
+  the gate runs, so a credential-like value is dropped before the prompt is built, not only before the episode ships.
 - **Prompt injection from logs and PR bodies.** Ledger text is fenced as ASCII JSON with `<` and `>` escaped, so no
   ledger text can close the fence; the prompt says the ledger is data; the writer runs with every tool disabled and
   without settings or MCP servers, and the gate judges whatever comes back.

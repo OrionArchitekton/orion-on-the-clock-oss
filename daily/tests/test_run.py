@@ -1025,7 +1025,8 @@ def test_collect_write_and_gate_run_end_to_end_to_a_passing_verdict(monkeypatch,
         dataclasses.replace(p, harness="codex") if want(p) else p for p in prs))
     monkeypatch.setattr(claude, "scan_claude", lambda day, root, resolver, *, exclude_fragments: ClaudeDay(2, 1, ()))
     monkeypatch.setattr(codex, "scan_codex", lambda day, db, resolver, sessions, *, exclude_fragments: CodexDay(1, 0, ()))
-    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), lambda t: []))
+    monkeypatch.setattr(textcheck, "load", lambda settings=None: TextChecks(lambda t: ("PUBLISH", []), lambda t: [],
+                                                                                    lambda t: []))
     monkeypatch.setattr(gate, "default_deps", lambda settings=None: gate.Deps(lambda t: ("PUBLISH", []), lambda t: [],
                                                                              lambda t: []))
     prompts = []

@@ -18,7 +18,6 @@ from typing import Callable
 from daily import paths, textcheck
 from daily.config import repo_name
 from daily.files import now_iso, sha256_bytes, write_json
-from daily.settings import DEFAULT_PUBLIC_HOSTS
 from daily.ledger import (blockable_private_names, exclude_fragments, name_pattern, non_ascii, path_or_url, quote_id, resolve_view_id,
                           writer_view)
 from daily.sources.transcripts import SAFE_ID, contains_fragment
@@ -158,27 +157,19 @@ def _unavailable(exc: type) -> Callable:
 
 
 def default_deps(settings=None) -> Deps:
-    """The redactor and slop gate the collect stage's prefilter uses (daily.textcheck, with the operator's extra
-    redact patterns), and the secret-shape scanner (`secret_scan.scan_output`, with settings.toml `checks.public_hosts`),
-    each loaded by file location from the checks folder (textcheck.checks_dir) under a private module name: sys.path
-    and sys.modules stay untouched, so no shadow module can stand in. Never raises: a scanner that cannot be loaded
-    raises when it runs, so the gate records its check as failed."""
+    """The same three checks the collect stage's prefilter runs (daily.textcheck): the redactor with the operator's extra
+    redact patterns, the slop gate, and the secret-shape scanner (`secret_scan.scan_output`, with settings.toml
+    `checks.public_hosts`), each loaded by file location from the checks folder (textcheck.checks_dir) under a private
+    module name: sys.path and sys.modules stay untouched, so no shadow module can stand in. Never raises: a scanner that
+    cannot be loaded raises when it runs, so the gate records its own check as failed."""
     try:
-        checks = textcheck.load(settings)
-        redactor, slop = checks.redactor_decision, checks.slop_scan
+        redactor, slop = textcheck.load_pair(settings)
     except textcheck.TextcheckUnavailable:
         redactor = slop = _unavailable(textcheck.TextcheckUnavailable)
-    hosts = getattr(settings, "public_hosts", None)
-    hosts = DEFAULT_PUBLIC_HOSTS if hosts is None else tuple(hosts)  # an empty list means no host at all, not the default
     try:
-        scan = textcheck.load_module(textcheck.checks_dir(settings) / "secret_scan.py", "secret_scan").scan_output
-        if not callable(scan):
-            raise SecretsUnavailable("secrets_unavailable")
-    except Exception:  # missing, linked from outside the folder, broken on load, no scan_output
+        secrets = textcheck.load_secrets(settings)   # an empty public_hosts list means no host at all, not the default
+    except textcheck.TextcheckUnavailable:
         secrets = _unavailable(SecretsUnavailable)
-    else:
-        def secrets(text):
-            return scan(text, public_hosts=hosts)
     return Deps(redactor, slop, secrets)
 
 

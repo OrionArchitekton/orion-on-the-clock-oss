@@ -749,6 +749,7 @@ def test_stage_refuses_without_a_verdict(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "run_tts", boom)
     monkeypatch.setattr(voicelint, "write_record", boom)
     monkeypatch.setattr(voiceconf, "load_voices_hashed", boom)
+    monkeypatch.setattr(voiceconf, "load_voices_raw", boom)
     r = voice.run_stage(ctx(w, dry=True))
     assert not r.ok and r.reason == "gate_not_accepted"
     assert not (w / "voice").exists() and not (w / "hostlint.json").exists()
@@ -788,6 +789,7 @@ def test_the_gate_is_asked_before_anything_is_read_or_written(tmp_path, monkeypa
     monkeypatch.setattr(gate, "read_verified", refuse)
     monkeypatch.setattr(voice, "build_lines", lambda *a: (_ for _ in ()).throw(AssertionError("lines before gate")))
     monkeypatch.setattr(voiceconf, "load_voices_hashed", boom)
+    monkeypatch.setattr(voiceconf, "load_voices_raw", boom)
     r = voice.run_stage(ctx(w))
     assert not r.ok and at_gate == {"voice": False, "hostlint": False}  # only the stale cleanup came first
 
@@ -1065,7 +1067,8 @@ def test_a_failed_rerun_leaves_no_take_of_the_run_before(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "run_tts", lambda *a, **k: (_ for _ in ()).throw(voice.VoiceError("tts_runner_failed")))
     r = voice.run_stage(ctx(w))
     assert (r.ok, r.reason) == (False, "voice:tts_runner_failed")
-    assert sorted(p.name for p in (w / "voice").iterdir()) == ["lines.json", voice.MANIFEST]  # nothing of the first run
+    assert sorted(p.name for p in (w / "voice").iterdir()) == sorted(["lines.json", voice.MANIFEST, voice.VOICES_COPY])
+    # nothing of the first run: only this run's lines, manifest and voices copy
 
 
 def test_a_real_run_after_a_dry_one_starts_clean(tmp_path, monkeypatch):
@@ -1265,7 +1268,8 @@ def test_the_runner_gets_the_voices_file_and_the_digest_the_stage_checked(tmp_pa
     fk = Fakes(monkeypatch)
     assert voice.run_stage(ctx(w)).ok
     (call,) = fk.tts_calls
-    assert call["voices_path"] == VP() == STATE["dir"] / "voices.json" and call["ref"] == Fakes.REF
+    assert call["voices_path"] == w / "voice" / voice.VOICES_COPY and call["ref"] == Fakes.REF
+    assert call["voices_path"].read_bytes() == (STATE["dir"] / "voices.json").read_bytes() == VP().read_bytes()
     assert call["settings"] is STATE["settings"]
 
 
@@ -1304,36 +1308,66 @@ def test_a_dry_run_records_the_same_with_a_null_reference(tmp_path, monkeypatch)
     assert [r["id"] for r in m["lines"]] == [ln["id"] for ln in stage_lines(w)]
 
 
-def test_the_manifest_hashes_the_voices_bytes_the_lines_were_built_from(tmp_path, monkeypatch):
-    """voices.json is read once for the lines; a rewrite right after that read is what the post-run check catches."""
+def test_the_runner_gets_a_private_copy_of_the_bytes_read_once(tmp_path, monkeypatch):
+    """voices.json is read once: the lines are built from those bytes, they are hashed, and that exact copy, written
+    into the run's voice folder (0600), is what the runner is handed. A rewrite of the operator's file after the read
+    changes nothing the runner uses (the render then refuses the day: voice_config_changed there)."""
+    w = M.work_dir(tmp_path)
+    original = VP().read_bytes()
+    seen = {}
+
+    def tts(lines, voice_dir, voices_path, ref):
+        VP().write_bytes(original + b"\n")              # the operator's file changes after the one read
+        seen["path"], seen["bytes"] = Path(voices_path), Path(voices_path).read_bytes()
+        seen["mode"] = Path(voices_path).stat().st_mode & 0o777
+        return fast_tts(lines, voice_dir, voices_path, ref)
+
+    fk = Fakes(monkeypatch, tts=tts)
+    r = voice.run_stage(ctx(w))
+    assert r.ok, r.reason
+    assert seen["path"] == w / "voice" / "voices.json" and seen["bytes"] == original and seen["mode"] == 0o600
+    assert fk.tts_calls[0]["voices_sha"] == files.sha256_bytes(original) == manifest_of(w)["voices_sha256"]
+
+
+def test_the_stage_reads_the_operators_voices_file_once(tmp_path, monkeypatch):
     w = M.work_dir(tmp_path)
     Fakes(monkeypatch)
-    real = voiceconf.load_voices_hashed
+    reads = []
+    real = Path.read_bytes
 
-    def load_then_edit(*a, **k):
-        got = real(*a, **k)
-        VP().write_bytes(VP().read_bytes() + b"\n")  # after the one read the lines are built from
-        return got
+    def counting(self):
+        if self == VP():
+            reads.append(self)
+        return real(self)
 
-    monkeypatch.setattr(voiceconf, "load_voices_hashed", load_then_edit)
-    r = voice.run_stage(ctx(w))
-    assert (r.ok, r.reason) == (False, "voice_config_changed")
+    monkeypatch.setattr(Path, "read_bytes", counting)
+    assert voice.run_stage(ctx(w)).ok
+    assert len(reads) == 1
 
 
-def test_a_voices_file_changed_while_the_runner_ran_fails_the_stage(tmp_path, monkeypatch):
+def test_a_voices_copy_changed_while_the_runner_ran_fails_the_stage(tmp_path, monkeypatch):
+    """The post-run check holds the copy the runner was handed to the bytes the stage read and hashed."""
     w = M.work_dir(tmp_path)
     fk = Fakes(monkeypatch)
     inner = voice.run_tts
 
     def tts_then_edit(lines, voice_dir, voices_path, ref, **kw):
         out = inner(lines, voice_dir, voices_path, ref, **kw)
-        VP().write_bytes(VP().read_bytes() + b"\n")
+        Path(voices_path).write_bytes(Path(voices_path).read_bytes() + b"\n")
         return out
 
     monkeypatch.setattr(voice, "run_tts", tts_then_edit)
     r = voice.run_stage(ctx(w))
     assert (r.ok, r.reason) == (False, "voice_config_changed")
     assert fk.posted == []
+
+
+def test_the_dry_run_hands_no_copy_anywhere(tmp_path, monkeypatch):
+    w = M.work_dir(tmp_path)
+    fast_audio(monkeypatch)
+    monkeypatch.setattr(voice, "run_tts", boom)
+    assert voice.run_stage(ctx(w, dry=True)).ok
+    assert manifest_of(w)["voices_sha256"] == voices_sha()
 
 
 def test_lines_json_is_what_the_stage_built(tmp_path, monkeypatch):
@@ -1387,7 +1421,7 @@ def test_a_host_chain_in_the_config_is_applied_and_heard_raw_too(tmp_path, monke
     fk = Fakes(monkeypatch)
     voices = M.voices()
     voices["host"]["post"] = voices["codex"]["post"]
-    monkeypatch.setattr(voiceconf, "load_voices_hashed", lambda *a: (voices, voices_sha()))
+    monkeypatch.setattr(voiceconf, "load_voices_raw", lambda *a: (voices, voices_sha(), VP().read_bytes()))
     assert voice.run_stage(ctx(w)).ok
     assert sorted(fk.posted) == sorted(f"{ln['id']}.wav" for ln in stage_lines(w))
     assert set(fk.job_audio().values()) == {f"{ln['id']}.raw.wav" for ln in stage_lines(w)}
@@ -1470,7 +1504,7 @@ def test_an_inactive_harness_voice_is_a_code_not_its_message(tmp_path, monkeypat
     w = M.work_dir(tmp_path)
     voices = M.voices()
     voices["codex"]["active"] = False
-    monkeypatch.setattr(voiceconf, "load_voices_hashed", lambda *a: (voices, voices_sha()))
+    monkeypatch.setattr(voiceconf, "load_voices_raw", lambda *a: (voices, voices_sha(), VP().read_bytes()))
     r = voice.run_stage(ctx(w))
     assert (r.ok, r.reason) == (False, "voice_lines:VoiceConfigError")
 

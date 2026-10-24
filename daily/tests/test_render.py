@@ -1708,7 +1708,7 @@ def test_the_stage_never_reopens_voices_after_its_one_read(gated, tmp_path, monk
         return real(*a, **k)
 
     monkeypatch.setattr(render.compose, "build", spy)
-    for name in ("load_voices", "load_voices_hashed"):
+    for name in ("load_voices", "load_voices_hashed", "load_voices_raw"):
         monkeypatch.setattr(voiceconf, name, lambda *a, **k: pytest.fail("voices.json reopened"))
     assert render.run_stage(ctx(w)).ok and isinstance(seen["voices"], dict)
 
