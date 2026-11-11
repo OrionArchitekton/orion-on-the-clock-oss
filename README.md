@@ -66,7 +66,10 @@ For the media half (versions are the ones this was built and tested with):
 - [Node.js](https://nodejs.org/) 22 or newer (built with 24) and [HyperFrames](https://github.com/heygen-com/hyperframes)
   0.8.36 (`npm install -g hyperframes@0.8.36`, Apache-2.0), which renders the composition in a headless Chromium; the
   pipeline runs `hyperframes` from your PATH, so with a local install set `render.hyperframes` to its full
-  `node_modules/.bin/hyperframes` path
+  `node_modules/.bin/hyperframes` path. The timer's entry script (`systemd/orion-on-the-clock-entry.sh`) builds its own
+  PATH, `~/.local/bin`, then the `bin` folder of the highest version under `~/.nvm/versions/node` if there is one, then
+  `/usr/local/bin`, `/usr/bin` and `/bin`, and runs `hyperframes` and `node` from that, so install HyperFrames under
+  that Node or set `render.hyperframes` to the full path
 - [Chatterbox](https://github.com/resemble-ai/chatterbox) 0.1.7 (`pip install chatterbox-tts==0.1.7`, with torch 2.7)
   in its own Python environment, on this machine or on a GPU box you can ssh to; a GPU with 4.5 GiB free is much
   faster, and the CPU works
