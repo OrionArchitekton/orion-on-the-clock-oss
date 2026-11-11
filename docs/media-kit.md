@@ -85,10 +85,16 @@ The host lines are read by a voice clone made from one reference recording: `voi
 | ffmpeg and ffprobe | 6.1 | the pipeline's machine (on `PATH`) | none |
 | Chatterbox (`pip install chatterbox-tts==0.1.7`, with torch 2.7) | 0.1.7 | its own Python environment, here or on the remote TTS host | `tts.python`, `tts.remote_python` |
 | faster-whisper (`pip install faster-whisper==1.2.1`) | 1.2.1, model `small.en` on CPU | its own Python environment | `whisper.python`, `whisper.model` |
-| HyperFrames (npm package `hyperframes`, github.com/heygen-com/hyperframes) | 0.9.27, with Node 24 (22 or newer) | the pipeline's machine | `render.hyperframes` |
+| HyperFrames (npm package `hyperframes`, github.com/heygen-com/hyperframes) | 0.8.36, with Node 24 (22 or newer) | the pipeline's machine | `render.hyperframes` |
 | numpy and Pillow | numpy 2, Pillow 12 | the pipeline's own Python (`pip install -e '.[media]'`) | none |
 
 Chatterbox downloads its model weights from Hugging Face on first use; run it once by hand on each machine that voices,
 because a remote run sets the hub offline and a first unattended run would otherwise stall on the download.
 HyperFrames drives a headless Chromium; if it cannot find one, set `HYPERFRAMES_BROWSER_PATH` in the environment the
 timer runs in.
+On Linux, install at least one system font package and check that `fc-list` prints at least one font: when fontconfig
+lists none, Chromium draws no text at all (the kit's fonts included) and the render still exits 0 (upstream issue
+heygen-com/hyperframes#7406), and no render check looks at text pixels, so only the contact sheet would show it.
+Stay on HyperFrames 0.8.36: 0.9 adds craft warnings to `hyperframes check` (`line_unread` on the word-by-word captions,
+`text_below_floor`, `dead_stretch`), and the render stage stops with `hf_check` on any check warning it does not
+tolerate.
