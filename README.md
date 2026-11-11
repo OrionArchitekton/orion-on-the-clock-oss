@@ -64,7 +64,7 @@ For the media half (versions are the ones this was built and tested with):
 
 - ffmpeg and ffprobe 6.1 on your PATH, and numpy and Pillow in the pipeline's Python (`pip install -e '.[media]'`)
 - [Node.js](https://nodejs.org/) 22 or newer (built with 24) and [HyperFrames](https://github.com/heygen-com/hyperframes)
-  0.8.36 (`npm install hyperframes@0.8.36`, Apache-2.0), which renders the composition in a headless Chromium
+  0.9.27 (`npm install hyperframes@0.9.27`, Apache-2.0), which renders the composition in a headless Chromium
 - [Chatterbox](https://github.com/resemble-ai/chatterbox) 0.1.7 (`pip install chatterbox-tts==0.1.7`, with torch 2.7)
   in its own Python environment, on this machine or on a GPU box you can ssh to; a GPU with 4.5 GiB free is much
   faster, and the CPU works
