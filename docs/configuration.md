@@ -35,7 +35,7 @@ settings file prints one line to stderr and exits 1 before any stage runs.
 | `github.harness_prefixes` | no | Branch prefix to agent id; only `claude_code` and `codex` may be credited. |
 | `checks.public_hosts` | no | Hosts a shipped line may name in a URL (default: YouTube only). |
 | `checks.redact_patterns` | no | Your own private words as regular expressions (`name`, `regex`); a hit stops the line. |
-| `checks.dir` | no | A folder with your own `redactor.py`, `slop_gate.py` and `secret_scan.py` in place of `daily/checks/`. |
+| `checks.dir` | no | A folder with your own `redactor.py`, `slop_gate.py` and `secret_scan.py` in place of `daily/checks/`. If you copy the built-in `slop_gate.py`, copy `_orion_creative_adapter.py` with it: the gate loads its hard tier from that generated file and refuses to load without it. |
 | `writer.model`, `writer.budget_usd` | no | The headless Claude Code call (default `sonnet`, 2 USD cap per call). |
 | `writer.voice_style`, `writer.voice_samples`, `writer.voice_tags`, `writer.avoid_words` | no | How the host talks; see below. |
 | `channel.id` | for a real publish | The YouTube channel id (`UC` and 22 characters) every upload goes to and the driver proves before it acts. |
