@@ -287,7 +287,9 @@ def test_without_the_secret_scanner_the_checks_are_unavailable(tmp_path):
     from daily import paths
     from daily.textcheck import TextcheckUnavailable, load
     from types import SimpleNamespace
-    for name in ("redactor.py", "slop_gate.py"):
+    for name in ("redactor.py", "slop_gate.py", "_orion_creative_adapter.py"):
         shutil.copy(paths.CHECKS_DIR / name, tmp_path / name)
+    # Remove any direct shadow from checks_dir check so loading specifically rejects absent secret_scan.py
+    assert not (tmp_path / "secret_scan.py").exists()
     with pytest.raises(TextcheckUnavailable):
         load(SimpleNamespace(checks_dir=tmp_path, redact_patterns=(), harness_prefixes=(), public_hosts=None))

@@ -14,16 +14,25 @@ phrase or a dash inside a link (".../seamless-rollbacks") does not count.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import importlib.util
 from pathlib import Path
 
 _ADAPTER_FILE = "_orion_creative_adapter.py"
+_EXPECTED_ADAPTER_SHA256 = "8aee7abf385116c11762d0eaf7bfa38bb6850658f92041810e031ff0fab1b1b8"
 
 
 def _load_adapter():
     path = Path(__file__).resolve().with_name(_ADAPTER_FILE)
     if not path.is_file():
         raise ImportError("shared creative adapter missing")
+    try:
+        actual_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ImportError("shared creative adapter unreadable") from exc
+    if not hmac.compare_digest(actual_sha, _EXPECTED_ADAPTER_SHA256):
+        raise ImportError("shared creative adapter digest mismatch")
     spec = importlib.util.spec_from_file_location("_daily_orion_creative_adapter", path)
     if spec is None or spec.loader is None:
         raise ImportError("shared creative adapter cannot be loaded")

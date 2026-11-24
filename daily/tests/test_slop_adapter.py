@@ -77,6 +77,9 @@ def test_an_edited_adapter_fails_closed(tmp_path):
     source = (paths.CHECKS_DIR / "_orion_creative_adapter.py").read_text(encoding="utf-8")
     edited = source.replace("'delve',", "'delvex',", 1)
     assert edited != source
-    (tmp_path / "_orion_creative_adapter.py").write_text(edited, encoding="utf-8")
+    sentinel = tmp_path / "tampered_executed.txt"
+    payload = f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('ran')\n" + edited
+    (tmp_path / "_orion_creative_adapter.py").write_text(payload, encoding="utf-8")
     with pytest.raises(ImportError):
         textcheck.load_module(tmp_path / "slop_gate.py", "slop_gate")
+    assert not sentinel.exists()  # digest check stops tampered code before exec_module
